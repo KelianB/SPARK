@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="SPARK creates a 3D face reconstruction from multiple casually captured portrait videos of a person and enables real-time tracking on new unseen videos.">
+  <meta name="keywords" content="SPARK, Face Reconstruction, Face Tracking">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SPARK: Self-supervised Personalized Real-time Monocular Face Capture</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/favicon.png">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+</head>
+<body>
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">SPARK: Self-supervised Personalized Real-time Monocular Face Capture</h1>
+            <div class="is-size-5 publication-authors">
+              <span class="author-block">
+                <a href="#">Kelian Baert</a><sup>1,2</sup>,</span>
+              <span class="author-block">
+                <a href="https://sbharadwajj.github.io/">Shrisha Bharadwaj</a><sup>3</sup>,</span>
+              <span class="author-block">
+                <a href="#">Fabien Castan</a><sup>1</sup>,
+              </span>
+              <span class="author-block">
+                <a href="#">Benoit Maujean</a><sup>1</sup>,
+              </span>
+              <span class="author-block">
+                <a href="https://people.irisa.fr/Marc.Christie/">Marc Christie</a><sup>2</sup>,
+              </span>
+              <span class="author-block">
+                <a href="https://vabrevaya.github.io/">Victoria Abrevaya</a><sup>3</sup>,
+              </span>
+              <span class="author-block">
+                <a href="https://boukhayma.github.io/">Adnane Boukhayma</a><sup>2</sup>
+              </span>
+            </div>
+
+            <div class="is-size-5 publication-authors">
+              <span class="author-block"><sup>1</sup>Technicolor Group,</span>
+              <span class="author-block"><sup>2</sup>INRIA, CNRS, IRISA, France,</span>
+              <span class="author-block"><sup>3</sup>Max Planck Institute for Intelligent Systems</span>
+            </div>
+            
+            <div class="column has-text-centered is-size-5">
+              <span class="publication-venue">SIGGRAPH Asia 2024</span>
+            </div>
+
+            <div class="column has-text-centered">
+              <div class="publication-links">
+                <!-- PDF Link. -->
+                <span class="link-block">
+                  <a href="https://arxiv.org/pdf/2011.12948"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                        <i class="fas fa-file-pdf"></i>
+                    </span>
+                    <span>Paper (coming soon)</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a href="https://arxiv.org/abs/2011.12948"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                        <i class="ai ai-arxiv"></i>
+                    </span>
+                    <span>arXiv (coming soon)</span>
+                  </a>
+                </span>
+                <span class="link-block">
+                  <a href="#"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                        <i class="fas fa-file-pdf"></i>
+                    </span>
+                    <span>Supplemental (coming soon)</span>
+                  </a>
+                </span>
+                <!-- Video Link. -->
+                <!--
+                <span class="link-block">
+                  <a href="https://www.youtube.com/watch?v="
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                        <i class="fab fa-youtube"></i>
+                    </span>
+                    <span>Video</span>
+                  </a>
+                </span>
+                -->
+                <!-- Code Link. -->
+                <span class="link-block">
+                  <a href="#"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                        <i class="fab fa-github"></i>
+                    </span>
+                    <span>Code (coming soon)</span>
+                    </a>
+                </span>
+                <!-- Dataset Link. -->
+                <!--
+                <span class="link-block">
+                  <a href="#"
+                    class="external-link button is-normal is-rounded is-dark">
+                    <span class="icon">
+                        <i class="far fa-images"></i>
+                    </span>
+                    <span>Data</span>
+                  </a>
+                </span>
+                -->
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="hero teaser">
+    <div class="container is-max-desktop">
+      <div class="hero-body">
+        <video id="teaser" autoplay muted loop playsinline height="100%">
+          <source src="./static/videos/teaser.mp4"
+                  type="video/mp4">
+        </video>
+        <h2 class="subtitle has-text-centered">
+          <span class="dnerf">SPARK</span> creates a 3D face reconstruction from multiple unconstrained portrait videos of a person and enables real-time tracking on new unseen videos.
+        </h2>
+      </div>
+    </div>
+  </section>
+
+  <section class="hero is-light is-small">
+    <div class="hero-body has-text-centered">
+      <h2 class="title is-3">1. Multi-video Face Avatar Reconstruction</h2>
+      <div class="content">
+        <p>
+          SPARK reconstructs a relightable face avatar from multiple monocular videos.
+        </p>
+      </div>
+
+      <div class="columns is-centered">
+        <div class="column is-3">
+          <img src="./static/images/multiflare_1.png" alt="Multi-video avatar reconstruction results #1."/>
+        </div>
+        <div class="column is-3">
+          <img src="./static/images/multiflare_2.png" alt="Multi-video avatar reconstruction results #2."/>
+        </div>
+      </div>      
+
+      <div class="content has-text-center caption">
+        <p>Examples of the multi-video avatar reconstruction stage using poses and expressions of two training frames.</p>
+      </div>
+    </div>
+  </section>
+
+
+
+  <section class="hero is-light is-small">
+    <div class="hero-body has-text-centered">
+      <h2 class="title is-3">2. Personalized Real-time Tracking</h2>
+      <div class="content">
+        <p>
+          Leveraging the same videos and the estimated avatar, SPARK learns to precisely track unseen footage of the person in real-time.
+        </p>
+      </div>
+      <div class="container">
+        <div id="results-carousel" class="carousel results-carousel">
+          <div class="item">
+            <video poster="" autoplay controls muted loop playsinline height="100%">
+              <source src="./static/videos/tracking/obama.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="item">
+            <video poster="" autoplay controls muted loop playsinline height="100%">
+              <source src="./static/videos/tracking/gadot.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="item">
+            <video poster="" autoplay controls muted loop playsinline height="100%">
+              <source src="./static/videos/tracking/crews.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="item">
+            <video poster="" autoplay controls muted loop playsinline height="100%">
+              <source src="./static/videos/tracking/park.mp4" type="video/mp4">
+            </video>
+          </div>
+          <div class="item">
+            <video poster="" autoplay controls muted loop playsinline height="100%">
+              <source src="./static/videos/tracking/azalea.mp4" type="video/mp4">
+            </video>
+          </div>         
+          <div class="item item-steve">
+            <video poster="" autoplay controls muted loop playsinline height="100%">
+              <source src="./static/videos/tracking/carell.mp4" type="video/mp4">
+            </video>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <section class="section">
+    <div class="container is-max-desktop">
+      <!-- Abstract. -->
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3">Abstract</h2>
+          <div class="content has-text-justified">
+            <p>
+              Feedforward monocular face capture methods seek to reconstruct posed faces
+              from a single image of a person. Current state of the art approaches have the
+              ability to regress parametric 3D face models in real-time across a wide range
+              of identities, lighting conditions and poses by leveraging large image datasets
+              of human faces. These methods however suffer from clear limitations in that
+              the underlying parametric face model only provides a coarse estimation of
+              the face shape, thereby limiting their practical applicability in tasks that
+              require precise 3D reconstruction (aging, face swapping, digital make-up, ...).
+            </p>
+            <p>
+              In this paper, we propose a method for high-precision 3D face capture
+              taking advantage of a collection of unconstrained videos of a subject as
+              prior information. Our proposal builds on a two stage approach. We start
+              with the reconstruction of a detailed 3D face avatar of the person, capturing
+              both precise geometry and appearance from a collection of videos. We
+              then use the encoder from a pre-trained monocular face reconstruction
+              method, substituting its decoder with our personalized model, and proceed
+              with transfer learning on the video collection. Using our pre-estimated
+              image formation model, we obtain a more precise self-supervision objective,
+              enabling improved expression and pose alignment. This results in a trained
+              encoder capable of efficiently regressing pose and expression parameters
+              in real-time from previously unseen images, which combined with our
+              personalized geometry model yields more accurate and high fidelity mesh
+              inference.
+            </p>
+            <p>
+              Through extensive qualitative and quantitative evaluation, we showcase
+              the superiority of our final model as compared to state-of-the-art baselines,
+              and demonstrate its generalization ability to unseen pose, expression and
+              lighting.
+            </p>
+          </div>
+        </div>
+      </div>
+      <!--/ Abstract. -->
+
+      <!-- Method Figure. -->
+      <div class="columns is-centered has-text-centered">
+        <div class="column is-four-fifths">
+          <h2 class="title is-3">Method</h2>
+          <img src="./static/images/method_figure.svg" />
+          <div class="content has-text-justified caption">
+            <p>
+              Illustration of our-two stage adaptation process. In stage 1, we rely on a collection of different video sources of the same person to build a personalized
+geometry decoder through inverse rendering. In stage 2, the 3DMM of a generalizable feedforward face capture network is swapped with the new decoder,
+and the encoder is tuned by reconstructing the same adaptation video frames leveraging the pre-estimated reflectance function for each video.
+            </p>
+          </div>
+        </div>
+      </div>
+      <!--/ Method Figure. -->
+    </div>
+  </section>
+
+
+  <section class="section">
+    <div class="container is-max-desktop">
+      <div class="content">
+        <!-- VFX Example. -->
+        <div class="columns is-centered has-text-centered">
+          <div class="column is-four-fifths">
+            <h2 class="title is-3">Visual Effects</h2>
+            <p>
+              The precise tracking from <i>SPARK</i> can be used for face editing or other visual effects applications, which would usually require manual modelling or 3D scanning sessions of the actor.
+            </p>
+            <video autoplay controls muted loop playsinline height="100%">
+              <source src="./static/videos/obama_facial_hair.mp4" type="video/mp4">
+            </video>
+          </div>
+        </div>
+        <!--/ VFX Example. -->
+      </div>
+    </div>
+  </section>
+
+  <!-- TODO update bibtex (journal) -->
+  <section class="section" id="BibTeX">
+    <div class="container is-max-desktop content">
+      <h2 class="title">BibTeX</h2>
+      <pre><code>@article{baert2024spark,
+        author    = {Baert, Kelian and Bharadwaj, Shrisha and Castan, Fabien and Maujean, Benoit and Christie, Marc and Abrevaya, Victoria and Boukhayma, Adnane},
+        title     = {SPARK: Self-supervised Personalized Real-time Monocular Face Capture},
+        journal   = {ACM Transactions on Graphics (Proc. SIGGRAPH Asia 2024)},
+        year      = {2024},
+      }</code></pre>
+    </div>
+  </section>
+  <footer class="footer">
+    <div class="container">
+      <div class="content has-text-centered">
+        <a class="icon-link"
+          href="./static/documents/spark_paper.pdf">
+          <i class="fas fa-file-pdf"></i>
+        </a>
+        <a class="icon-link" href="https://github.com/KelianB" class="external-link" disabled>
+          <i class="fab fa-github"></i>
+        </a>
+      </div>
+      <div class="columns is-centered">
+        <div class="column is-8">
+          <div class="content">
+            <p>
+              This website is licensed under a <a rel="license"
+                                                  href="http://creativecommons.org/licenses/by-sa/4.0/">Creative
+              Commons Attribution-ShareAlike 4.0 International License</a>.
+            </p>
+            <p>
+              This website's source code is based on the <a href="nerfies.github.io">Nerfies</a> project page. If you want to reuse their source code, please credit them appropriately.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
