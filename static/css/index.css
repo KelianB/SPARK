@@ -13,8 +13,10 @@ body {
     margin-bottom: 5px;
 }
 
-.dnerf {
-  font-variant: small-caps;
+.spark {
+  /* font-variant: all-small-caps; */
+  font-weight: bold !important;
+  /* font-style: italic; */
 }
 
 
