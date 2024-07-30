@@ -133,3 +133,18 @@ body {
   color: #999;
   font-weight: 0.8rem;
 }
+
+.zoomable-img input[type=checkbox] {
+  display: none;
+}
+.zoomable-img img {
+  transition: transform 0.25s ease;
+  cursor: zoom-in;
+} 
+.zoomable-img input[type=checkbox]:checked ~ label > img {
+  transform: scale(2);
+  cursor: zoom-out;
+  background: white;
+  position: relative;
+  z-index: 10;
+}

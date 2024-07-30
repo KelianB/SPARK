@@ -1,3 +1,18 @@
+function makeZoomable(selector) {
+	let elements = document.querySelectorAll(selector);
+	elements.forEach((element) => {
+		let wrapper = document.createElement("div");
+		wrapper.classList.add("zoomable-img");
+		const id = `zoom${Math.round(Math.random() * 1e9)}`;
+		wrapper.innerHTML = `
+			<input type="checkbox" id="${id}">
+			<label for="${id}"></label>
+		`
+		element.parentNode.replaceChild(wrapper, element);
+		wrapper.querySelector("label").appendChild(element);
+	});
+}
+
 $(document).ready(function() {
     var options = {
 			slidesToScroll: 1,
@@ -29,4 +44,6 @@ $(document).ready(function() {
     }
 
     bulmaSlider.attach();
+
+	makeZoomable(".make-zoomable");
 });
