@@ -1,6 +1,6 @@
 # SPARK
 
-This is the repository that contains source code for the [SPARK website](https://spark.github.io).
+This repository contains the official source code for [SPARK](https://spark.github.io) [SIGGRAPH Asia 2024].
 
 If you find SPARK useful for your work please cite:
 ```
