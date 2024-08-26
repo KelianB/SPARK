@@ -1,6 +1,6 @@
 # SPARK
 
-This repository contains the official source code for [SPARK](https://kelianb.github.io/SPARK-page/) [SIGGRAPH Asia 2024].
+This repository contains the official source code for [SPARK](https://kelianb.github.io/SPARK/) [SIGGRAPH Asia 2024].
 
 If you find SPARK useful for your work please cite:
 ```
