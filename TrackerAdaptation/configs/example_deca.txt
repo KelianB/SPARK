@@ -1,0 +1,16 @@
+multiflare = example.txt # config in MultiFLARE/configs
+multiflare_resume = 3000
+test_dirs = ["5", "6"]
+
+exp_name = DECA_MultiFLARE
+
+encoder = DECA
+deca_model = DECA
+deca_cfg = cfg_spark.yaml
+
+decoder = MultiFLARE
+
+adapt_iters = 3000
+adapt_lr = 1e-5
+train_mlps = True
+train_backbones_last = True

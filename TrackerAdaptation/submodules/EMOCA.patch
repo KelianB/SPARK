@@ -1,0 +1,297 @@
+diff --git a/gdl/layers/losses/emotion_loss_loader.py b/gdl/layers/losses/emotion_loss_loader.py
+index a5c4060..a9e37f5 100644
+--- a/gdl/layers/losses/emotion_loss_loader.py
++++ b/gdl/layers/losses/emotion_loss_loader.py
+@@ -34,6 +34,7 @@ def emo_network_from_path(path):
+         return conf
+ 
+     cfg = load_configs(path)
++    cfg["model"]["pretrained_weights"] = "submodules/EMOCA/assets/FaceRecognition/resnet50_ft_weight.pkl"
+ 
+     if not bool(cfg.inout.checkpoint_dir):
+         cfg.inout.checkpoint_dir = str(Path(path) / "checkpoints")
+diff --git a/gdl/models/DECA.py b/gdl/models/DECA.py
+index df5ea57..356b4b5 100644
+--- a/gdl/models/DECA.py
++++ b/gdl/models/DECA.py
+@@ -267,7 +267,7 @@ class DecaModule(LightningModule):
+         self.inout_params = inout_params
+         self.learning_params = learning_params
+ 
+-        if self.deca.__class__.__name__ != model_params.deca_class:
++        if ("deca_class" not in model_params.keys() and self.deca.__class__.__name__ != "DECA") or ("deca_class" in model_params.keys() and self.deca.__class__.__name__ != model_params.deca_class):
+             old_deca_class = self.deca.__class__.__name__
+             state_dict = self.deca.state_dict()
+             if 'deca_class' in model_params.keys():
+@@ -935,7 +935,7 @@ class DecaModule(LightningModule):
+         return detail_conditioning_list
+ 
+ 
+-    def decode(self, codedict, training=True, render=True, **kwargs) -> dict:
++    def decode(self, codedict, training=True, render=True, override_verts=None, **kwargs) -> dict:
+         """
+         Forward decoding pass of the model. Takes the latent code predicted by the encoding stage and reconstructs and renders the shape.
+         :param codedict: Batch dict of the predicted latent codes
+@@ -957,12 +957,16 @@ class DecaModule(LightningModule):
+ 
+         # 1) Reconstruct the face mesh
+         # FLAME - world space
+-        if not isinstance(self.deca.flame, FLAME_mediapipe):
+-            verts, landmarks2d, landmarks3d = self.deca.flame(shape_params=shapecode, expression_params=expcode,
+-                                                          pose_params=posecode)
+-            landmarks2d_mediapipe = None
++        if override_verts is None:
++            if not isinstance(self.deca.flame, FLAME_mediapipe):
++                verts, landmarks2d, landmarks3d = self.deca.flame(shape_params=shapecode, expression_params=expcode,
++                                                            pose_params=posecode)
++                landmarks2d_mediapipe = None
++            else:
++                verts, landmarks2d, landmarks3d, landmarks2d_mediapipe = self.deca.flame(shapecode, expcode, posecode)
+         else:
+-            verts, landmarks2d, landmarks3d, landmarks2d_mediapipe = self.deca.flame(shapecode, expcode, posecode)
++            verts, landmarks2d, landmarks3d, landmarks2d_mediapipe = override_verts
++
+         # world to camera
+         trans_verts = util.batch_orth_proj(verts, cam)
+         predicted_landmarks = util.batch_orth_proj(landmarks2d, cam)[:, :, :2]
+@@ -1390,7 +1394,7 @@ class DecaModule(LightningModule):
+             torch.arange(0, mouth_crop_width, device=images.device)
+ 
+             grid = torch.stack(torch.meshgrid(torch.linspace(-height, height, mouth_crop_height).to(images.device) / (images.shape[-2] /2),
+-                                            torch.linspace(-width, width, mouth_crop_width).to(images.device) / (images.shape[-1] /2) ), 
++                                            torch.linspace(-width, width, mouth_crop_width).to(images.device) / (images.shape[-1] /2), indexing="ij"), 
+                                             dim=-1)
+             grid = grid[..., [1, 0]]
+             grid = grid.unsqueeze(0).unsqueeze(0).repeat(*images.shape[:2], 1, 1, 1)
+@@ -1816,12 +1820,9 @@ class DecaModule(LightningModule):
+         predicted_images = codedict["predicted_images"]
+         images = codedict["images"]
+         lightcode = codedict["lightcode"]
+-        albedo = codedict["albedo"]
+-        mask_face_eye = codedict["mask_face_eye"]
+         shapecode = codedict["shapecode"]
+         expcode = codedict["expcode"]
+         texcode = codedict["texcode"]
+-        ops = codedict["ops"]
+ 
+ 
+         if self.mode == DecaMode.DETAIL:
+@@ -2593,25 +2594,33 @@ class DecaModule(LightningModule):
+                                   save=False):
+         batch_size = verts.shape[0]
+         visind = np.arange(batch_size)
+-        shape_images = self.deca.render.render_shape(verts, trans_verts)
++        shape_images, normal_images = self.deca.render.render_shape(verts, trans_verts, return_normals=True)
+         if uv_detail_normals is not None:
+-            detail_normal_images = F.grid_sample(uv_detail_normals.detach(), ops['grid'].detach(),
++            normal_images_detail = F.grid_sample(uv_detail_normals.detach(), ops['grid'].detach(),
+                                                  align_corners=False)
+             shape_detail_images = self.deca.render.render_shape(verts, trans_verts,
+-                                                           detail_normal_images=detail_normal_images)
++                                                            detail_normal_images=normal_images_detail)
+         else:
+             shape_detail_images = None
++            normal_images_detail = None
+ 
+         visdict = {}
+         if 'images' in additional.keys():
+             visdict['inputs'] = additional['images'][visind]
+ 
+-        if 'images' in additional.keys() and 'lmk' in additional.keys():
+-            visdict['landmarks_gt'] = util.tensor_vis_landmarks(additional['images'][visind], additional['lmk'][visind])
++        visdict["normal_images"] = normal_images
++        if normal_images_detail is not None:
++            visdict["normal_images_detail"] = normal_images_detail
+ 
+-        if 'images' in additional.keys() and 'predicted_landmarks' in additional.keys():
+-            visdict['landmarks_predicted'] = util.tensor_vis_landmarks(additional['images'][visind],
+-                                                                     additional['predicted_landmarks'][visind])
++        if "images" in additional.keys() and "lmk" in additional.keys() and "predicted_landmarks" in additional.keys():
++            visdict["landmarks"] = util.tensor_vis_landmarks(additional['images'][visind],
++                                                             additional['predicted_landmarks'][visind],
++                                                             gt_landmarks=additional['lmk'][visind], color="b")
++
++        if "images" in additional.keys() and "lmk_mp" in additional.keys() and "predicted_landmarks_mediapipe" in additional.keys():
++            visdict['landmarks_mp'] = util.tensor_vis_landmarks(additional['images'][visind],
++                                                                additional['predicted_landmarks_mediapipe'][visind],
++                                                                gt_landmarks=additional['lmk_mp'][visind], color="b")
+ 
+         if 'predicted_images' in additional.keys():
+             visdict['output_images_coarse'] = additional['predicted_images'][visind]
+@@ -3262,6 +3271,7 @@ class ExpDECA(DECA):
+         if mode:
+             if self.mode == DecaMode.COARSE:
+                 self.E_expression.train()
++                self.E_flame.train()
+                 # print("Setting E_expression to train")
+                 self.E_detail.eval()
+                 # print("Setting E_detail to eval")
+diff --git a/gdl/models/Renderer.py b/gdl/models/Renderer.py
+index 6d755bd..69623de 100644
+--- a/gdl/models/Renderer.py
++++ b/gdl/models/Renderer.py
+@@ -138,20 +138,22 @@ class Pytorch3dRasterizer(nn.Module):
+         raster_settings = util.dict2obj(raster_settings)
+         self.raster_settings = raster_settings
+ 
+-    def forward(self, vertices, faces, attributes=None):
++    def forward(self, vertices, faces, attributes=None, return_buffers=False, override_image_size=None):
+         fixed_vertices = vertices.clone()
+         fixed_vertices[..., :2] = -fixed_vertices[..., :2]
+         meshes_screen = Meshes(verts=fixed_vertices.float(), faces=faces.long())
+         raster_settings = self.raster_settings
+         pix_to_face, zbuf, bary_coords, dists = rasterize_meshes(
+             meshes_screen,
+-            image_size=raster_settings.image_size,
++            image_size=override_image_size if override_image_size is not None else raster_settings.image_size,
+             blur_radius=raster_settings.blur_radius,
+             faces_per_pixel=raster_settings.faces_per_pixel,
+             bin_size=raster_settings.bin_size,
+             max_faces_per_bin=raster_settings.max_faces_per_bin,
+             perspective_correct=raster_settings.perspective_correct,
++            cull_backfaces=True,
+         )
++        pix_to_face_original = pix_to_face.clone()
+         # pix_to_face(N,H,W,K), bary_coords(N,H,W,K,3),attribute: (N, nf, 3, D)
+         # pixel_vals = interpolate_face_attributes(fragment, attributes.view(attributes.shape[0]*attributes.shape[1], 3, attributes.shape[-1]))
+         vismask = (pix_to_face > -1).float()
+@@ -168,7 +170,10 @@ class Pytorch3dRasterizer(nn.Module):
+         pixel_vals[mask] = 0  # Replace masked values in output.
+         pixel_vals = pixel_vals[:, :, :, 0].permute(0, 3, 1, 2)
+         pixel_vals = torch.cat([pixel_vals, vismask[:, :, :, 0][:, None, :, :]], dim=1)
+-        return pixel_vals
++        if return_buffers:
++            return pixel_vals, bary_coords, pix_to_face_original, zbuf
++        else:
++            return pixel_vals
+ 
+ 
+ class SRenderY(nn.Module):
+@@ -348,7 +353,7 @@ class SRenderY(nn.Module):
+         shading = normals_dot_lights[:, :, :, None] * light_intensities[:, :, None, :]
+         return shading.mean(1)
+ 
+-    def render_shape(self, vertices, transformed_vertices, images=None, detail_normal_images=None, lights=None):
++    def render_shape(self, vertices, transformed_vertices, images=None, detail_normal_images=None, lights=None, return_buffers=False, return_normals=False, override_image_size=None):
+         '''
+         -- rendering shape with detail normal map
+         '''
+@@ -379,7 +384,10 @@ class SRenderY(nn.Module):
+                                 face_normals],
+                                -1)
+         # rasterize
+-        rendering = self.rasterizer(transformed_vertices, self.faces.expand(batch_size, -1, -1), attributes)
++        if return_buffers:
++            rendering, *buffers = self.rasterizer(transformed_vertices, self.faces.expand(batch_size, -1, -1), attributes, return_buffers=True, override_image_size=override_image_size)
++        else:
++            rendering = self.rasterizer(transformed_vertices, self.faces.expand(batch_size, -1, -1), attributes, override_image_size=override_image_size)
+ 
+         ####
+         alpha_images = rendering[:, -1, :, :][:, None, :, :].detach()
+@@ -407,7 +415,13 @@ class SRenderY(nn.Module):
+                         1 - alpha_images)
+         else:
+             shape_images = shaded_images * alpha_images + images * (1 - alpha_images)
+-        return shape_images
++        
++        if return_buffers:
++            return shape_images, *buffers
++        elif return_normals:
++            return shape_images, normal_images
++        else:
++            return shape_images
+ 
+     def render_depth(self, transformed_vertices):
+         '''
+diff --git a/gdl/models/ResNet.py b/gdl/models/ResNet.py
+index 50fc381..e039f4d 100644
+--- a/gdl/models/ResNet.py
++++ b/gdl/models/ResNet.py
+@@ -174,17 +174,17 @@ def copy_parameter_from_resnet(model, resnet_dict):
+ 
+ def load_ResNet50Model():
+     model = ResNet(Bottleneck, [3, 4, 6, 3])
+-    copy_parameter_from_resnet(model, torchvision.models.resnet50(pretrained = True).state_dict())
++    copy_parameter_from_resnet(model, torchvision.models.resnet50(weights="IMAGENET1K_V1").state_dict())
+     return model
+ 
+ def load_ResNet101Model():
+     model = ResNet(Bottleneck, [3, 4, 23, 3])
+-    copy_parameter_from_resnet(model, torchvision.models.resnet101(pretrained = True).state_dict())
++    copy_parameter_from_resnet(model, torchvision.models.resnet101(weights="IMAGENET1K_V1").state_dict())
+     return model
+ 
+ def load_ResNet152Model():
+     model = ResNet(Bottleneck, [3, 8, 36, 3])
+-    copy_parameter_from_resnet(model, torchvision.models.resnet152(pretrained = True).state_dict())
++    copy_parameter_from_resnet(model, torchvision.models.resnet152(weights="IMAGENET1K_V1").state_dict())
+     return model
+ 
+ # model.load_state_dict(checkpoint['model_state_dict'])
+diff --git a/gdl/utils/DecaUtils.py b/gdl/utils/DecaUtils.py
+index a4b92af..83c90e2 100644
+--- a/gdl/utils/DecaUtils.py
++++ b/gdl/utils/DecaUtils.py
+@@ -669,7 +669,7 @@ def plot_kpts(image, kpts, color='r'):
+         kpt: (68, 3).
+     '''
+     if color == 'r':
+-        c = (255, 0, 0)
++        c = (0, 0, 255)
+     elif color == 'g':
+         c = (0, 255, 0)
+     elif color == 'b':
+@@ -700,18 +700,19 @@ def plot_verts(image, kpts, color='r'):
+         kpt: (68, 3).
+     '''
+     if color == 'r':
+-        c = (255, 0, 0)
++        c = (0, 0, 255)
+     elif color == 'g':
+         c = (0, 255, 0)
+     elif color == 'b':
+-        c = (0, 0, 255)
++        c = (255, 0, 0)
+     elif color == 'y':
+         c = (0, 255, 255)
+     image = image.copy()
+ 
+     for i in range(kpts.shape[0]):
+         st = kpts[i, :2]
+-        image = cv2.circle(image, (st[0], st[1]), 1, c, 2)
++        st = st.astype(int)
++        image = cv2.circle(image, (st[0], st[1]), 1, c, -1)
+ 
+     return image
+ 
+@@ -739,13 +740,13 @@ def tensor_vis_landmarks(images, landmarks, gt_landmarks=None, color='g', isScal
+         if predicted_landmark.shape[0] == 68:
+             image_landmarks = plot_kpts(image, predicted_landmark, color)
+             if gt_landmarks is not None:
+-                image_landmarks = plot_verts(image_landmarks,
+-                                             gt_landmarks_np[i] * image.shape[0] / 2 + image.shape[0] / 2, 'r')
++                image_landmarks = plot_kpts(image_landmarks,
++                                            gt_landmarks_np[i] * image.shape[0] / 2 + image.shape[0] / 2, 'g')
+         else:
+             image_landmarks = plot_verts(image, predicted_landmark, color)
+             if gt_landmarks is not None:
+                 image_landmarks = plot_verts(image_landmarks,
+-                                             gt_landmarks_np[i] * image.shape[0] / 2 + image.shape[0] / 2, 'r')
++                                             gt_landmarks_np[i] * image.shape[0] / 2 + image.shape[0] / 2, 'g')
+         vis_landmarks.append(image_landmarks)
+ 
+     vis_landmarks = np.stack(vis_landmarks)
+diff --git a/gdl_apps/EMOCA/utils/load.py b/gdl_apps/EMOCA/utils/load.py
+index 8ed4e3e..e010f56 100644
+--- a/gdl_apps/EMOCA/utils/load.py
++++ b/gdl_apps/EMOCA/utils/load.py
+@@ -150,8 +150,7 @@ def replace_asset_dirs(cfg, output_dir : Path, ):
+         cfg[mode].model.face_eye_mask_path  = str(asset_dir / "FLAME/mask/uv_face_eye_mask.png")
+         cfg[mode].model.pretrained_modelpath = str(asset_dir / "DECA/data/deca_model.tar")
+         cfg[mode].model.pretrained_vgg_face_path = str(asset_dir /  "FaceRecognition/resnet50_ft_weight.pkl") 
+-        # cfg.model.emonet_model_path = str(asset_dir /  "EmotionRecognition/image_based_networks/ResNet50")
+-        cfg[mode].model.emonet_model_path = ""
++        cfg[mode].model.emonet_model_path = str(asset_dir /  "EmotionRecognition/image_based_networks/ResNet50")
+     
+     return cfg
+ 

@@ -1,0 +1,6 @@
+[submodule "TrackerAdaptation/submodules/SMIRK"]
+	path = TrackerAdaptation/submodules/SMIRK
+	url = https://github.com/georgeretsi/smirk.git
+[submodule "TrackerAdaptation/submodules/EMOCA"]
+	path = TrackerAdaptation/submodules/EMOCA
+	url = https://github.com/radekd91/emoca.git
