@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Ensure working dir is at the location of this script
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null
+
 echo "In order to run EMOCA, you need to download FLAME. Before you continue, you must register and agree to license terms at:"
 echo -e '\e]8;;https://flame.is.tue.mpg.de\ahttps://flame.is.tue.mpg.de\e]8;;\a'
 while true; do
