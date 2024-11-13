@@ -60,8 +60,9 @@ If you find our code or paper useful, please cite as:
     <summary>Details</summary>
 
 - Create the environment using [setup.sh](./setup.sh).
-- Download [FLAME](https://flame.is.tue.mpg.de/download.php) (2020 version), unzip it and copy `generic_model.pkl` at `./MultiFLARE/assets/flame/flame2020.pkl`
 - Run [TrackerAdaptation/setup_submodules.sh](./TrackerAdaptation/setup_submodules.sh). This may take a few minutes.
+- Link FLAME from MultiFLARE to EMOCA: `ln TrackerAdaptation/submodules/EMOCA/assets/FLAME/geometry/generic_model.pkl MultiFLARE/assets/flame/flame2020.pkl`
+    - This is equivalent to downloading [FLAME](https://flame.is.tue.mpg.de/download.php) (2020 version), unzipping it and copying `generic_model.pkl` at `./MultiFLARE/assets/flame/flame2020.pkl`.
 - Get Basel Face Model texture space adapted to FLAME. Unfortunately, we are not allowed to distribute the texture space since the license does not permit it. Therefore, please go to the [BFM page](https://faces.dmi.unibas.ch/bfm/bfm2019.html), sign up and download BFM. Then use the tool from this [repo](https://github.com/TimoBolkart/BFM_to_FLAME) to convert the texture space to FLAME. Put the resulting texture model file at `TrackerAdaptation/submodules/EMOCA/assets/FLAME/texture/FLAME_albedo_from_BFM.npz`.
 
 SPARK has been tested with NVIDIA RTX A5000 (24GB) or RTX A4000 (16GB) GPUs. It is possible to train on GPUs with less memory by reducing the batch size. 

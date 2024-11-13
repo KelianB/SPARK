@@ -99,7 +99,7 @@ ln configs/emoca/cfg_spark.yaml submodules/EMOCA/assets/EMOCA/models/EMOCA_v2_lr
     echo -e "\nDownloading pretrained SMIRK model..." &&
     cd submodules/SMIRK && 
     gdown 1T65uEd9dVLHgVw5KiUYL66NUee-MCzoE -O pretrained_models/
-    # Link SMIRK's FLAME to MultiFLARE's to avoid downloading it twice
+    # Link SMIRK's FLAME to EMOCA's to avoid downloading it twice
     mkdir -p assets/FLAME2020 &&
-    ln ../../../MultiFLARE/assets/flame/flame2020.pkl assets/FLAME2020/generic_model.pkl
+    ln ../EMOCA/assets/FLAME/geometry/generic_model.pkl assets/FLAME2020/generic_model.pkl
 )
