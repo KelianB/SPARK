@@ -43,6 +43,7 @@ def spark_setup(args: Namespace, render_mode="crop", training=False,
     dataset_test = MultiVideoDataset(mf_args.input_dir, args.test_dirs, sample_ratio=test_sample_ratio, head_only=mf_args.head_only)
 
     if test_max_frames is not None and test_max_frames != -1:
+        test_max_frames = min(test_max_frames, len(dataset_test))
         dataset_test = Subset(dataset_test, range(test_max_frames))
 
     # Add crops and compatibility for DECA/EMOCA
