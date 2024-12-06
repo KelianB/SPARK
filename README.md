@@ -1,7 +1,7 @@
 <p align="center">
     <h1 align="center">SPARK: Self-supervised Personalized Real-time Monocular Face Capture</h1>
     <p align="center">
-        <a href="#"><strong>Kelian Baert</strong></a>
+        <a href="mailto://kelian.baert@technicolor.com"><strong>Kelian Baert</strong></a>
         .
         <a href="https://sbharadwajj.github.io/"><strong>Shrisha Bharadwaj</strong></a>
         ·
