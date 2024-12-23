@@ -11,6 +11,7 @@ from make_comparison_video import fix_mask, blend
 
 # MultiFLARE imports
 from utils.dataset import DeviceDataLoader, find_collate, load_img
+from flare.core import Mesh
 
 from argparse import Namespace
 import torch
@@ -25,12 +26,16 @@ def main(wrapper: FaceTrackerWrapper, args: Namespace, dataset):
     out_dir.mkdir(parents=True, exist_ok=True)
     out_images = out_dir / "images"
     out_images.mkdir(parents=True, exist_ok=True)
-
+    if args.export_meshes:
+        out_meshes = out_dir / "meshes"
+        out_meshes.mkdir(parents=True, exist_ok=True)
+    
     dataloader = DeviceDataLoader(dataset, device=device, batch_size=args.batch_size, collate_fn=find_collate(dataset), num_workers=0)
 
-    texture = load_img(args.texture).to(device) # (H, W, 4)
-    # texture = srgb_to_rgb(texture)
-    wrapper.decoder.texture = texture
+    if args.texture:
+        texture = load_img(args.texture).to(device) # (H, W, 4)
+        # texture = srgb_to_rgb(texture)
+        wrapper.decoder.texture = texture
 
     fps = args.framerate / args.visu_interval
 
@@ -57,6 +62,11 @@ def main(wrapper: FaceTrackerWrapper, args: Namespace, dataset):
 
             for vidx, img_row in zip(views["idx"], img_rows):
                 img_saver.queue(img_row.cpu(), out_images / f"{vidx:05d}.png")
+            
+            if args.export_meshes:
+                for vidx, deformed_verts in zip(views["idx"], values["verts"]):
+                    mesh = Mesh(deformed_verts, wrapper.decoder.faces)
+                    mesh.write(out_meshes / f"{vidx:05d}.obj")
 
     logging.info("Creating video")
     os.system(f"/usr/bin/ffmpeg -y -framerate {fps} -pattern_type glob -i '{out_images / '*.png'}' -c:v libx264 -pix_fmt yuv420p {out_dir / 'video.mp4'}")
@@ -70,8 +80,9 @@ if __name__ == "__main__":
     parser.add_argument("--n_frames", type=int, default=-1, help="Number of frames to process (-1 for whole video)")
     parser.add_argument("--framerate", type=int, default=30, help="Framerate for generating the edited video")
     parser.add_argument("--smooth_crops", action="store_true", help="Smooth the crops to reduce jittering")
-    parser.add_argument("--texture", type=str, required=True, help="Path to a texture for rendering")
+    parser.add_argument("--texture", type=str, help="Path to a texture for rendering")
     parser.add_argument("--opacity", type=float, default=1.0, help="Opacity of the texture overlay")
+    parser.add_argument("--export_meshes", action="store_true", help="Export a .obj mesh per frame")
     args = parse_args(parser)
 
     if not args.out:
