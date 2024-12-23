@@ -134,7 +134,6 @@ class NeuralShader(torch.nn.Module):
         
         self.light_mlp = FC([38, *light_mlp_dims, 3], activation=activation, last_activation=self.light_mlp_activation, bias=True).to(device) 
         self.dir_enc_func = generate_ide_fn(deg_view=4, device=self.device)
-        self.dir_enc_func_normals = generate_ide_fn(deg_view=4, device=self.device)
 
         self.per_sequence_lighting = False
 
