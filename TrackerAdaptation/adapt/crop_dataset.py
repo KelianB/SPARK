@@ -132,6 +132,10 @@ class CropDataset(Dataset):
 
         # Transform
         crop = rgb_to_srgb(crop)
+        h_, w_, _ = crop.shape
+        if h_ * w_ == 0:
+            return None
+        
         crop = self.transforms(crop.permute(2,0,1)) # HW3 to 3HW
 
         # Also crop and transform the semantic mask
@@ -177,6 +181,8 @@ class CropDataset(Dataset):
         return len(self.dataset)
     
     def collate(self, batch):
+        if None in batch:
+            return None
         batch_original = [item["original"] for item in batch]
         batch_crop = [item["crop"] for item in batch]
         return {

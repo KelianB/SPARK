@@ -106,6 +106,8 @@ def adapt_tracker(
         lmk_loss_per_view = dict()
 
         for views in dataloader_train:
+            if views is None:
+                continue
             if iteration >= last_iteration:
                 break
             iteration += 1
