@@ -236,7 +236,7 @@ class Mesh:
 
         return tangents
     
-    def write(self, path: str):
+    def write(self, path: str, texture: torch.Tensor = None):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         vertices = self.vertices.detach().cpu()
@@ -246,11 +246,13 @@ class Mesh:
             verts_uvs = self._uv_coords.detach().cpu()
             faces_uvs = self._uv_idx.detach().cpu()
             # we need to define a texture map or PyTorch3D won't save UVs
-            texture_map = torch.zeros((16, 16, 3), dtype=torch.float) 
+            texture_map = torch.zeros((16, 16, 3), dtype=torch.float) if texture is None else texture
             save_obj(path, vertices, indices, verts_uvs=verts_uvs, faces_uvs=faces_uvs, texture_map=texture_map)
-            # clean-up the texture and mtl files which we don't want
-            path.with_suffix(".png").unlink() # delete texture file
-            path.with_suffix(".mtl").unlink() # delete material file
+
+            if texture is None:
+                # clean-up the texture and mtl files which we don't want
+                path.with_suffix(".png").unlink() # delete texture file
+                path.with_suffix(".mtl").unlink() # delete material file
         else:
             save_obj(path, vertices, indices)
 
