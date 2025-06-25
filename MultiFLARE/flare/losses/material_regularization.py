@@ -16,10 +16,8 @@ import torch
 
 from utils.dataset import SemanticMask
 
-def albedo_regularization(_adaptive, shader, mesh, device, iteration,
-                          material_input="canonical_pos", uv_coords=None):
-    position = uv_coords if material_input == "uvs" else mesh.vertices
-    
+def albedo_regularization(_adaptive, shader, mesh, device, iteration):
+    position = mesh.vertices
     pe_input = shader.apply_pe(position=position, iteration=iteration)
     val = shader.material_mlp(pe_input)[..., :4]
 

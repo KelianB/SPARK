@@ -157,7 +157,7 @@ class Avatar():
         #################### Deformer ####################
         logging.info("Initializing deformer network")
         deformer_net = ForwardDeformer(flame, dims=args.deformer_dims, multires=args.deformer_embed_freqs, num_exp=self.n_exp, aabb=self.canonical_aabb_minmax,
-                                        weight_norm=True, deformer_input=args.deformer_input, overrides=args.deformer_overrides, expr_only=args.deformer_expression_only)
+                                        weight_norm=True, overrides=args.deformer_overrides, expr_only=args.deformer_expression_only)
         deformer_net.to(device)
         self.deformer_net = deformer_net
 
@@ -179,17 +179,13 @@ class Avatar():
         #################### Setup the renderer ####################
         renderer = Renderer(device=device)
         channels_gbuffer = ["mask", "position", "normal", "canonical_position"]
-        if args.material_input == "flame_pos":
-            channels_gbuffer.append("flame_position")
-        elif args.material_input == "uvs":
-            channels_gbuffer.append("uvs")
-        logging.info(f"Rasterizing: {channels_gbuffer}")
+        # logging.info(f"Rasterizing: {channels_gbuffer}")
 
         #################### Shading ####################
         logging.info("Initializing neural shader")
         shader = NeuralShader(
             aabb=self.canonical_aabb_minmax,
-            material_input=args.material_input, material_embedding=args.material_embedding, material_mlp_dims=args.material_mlp_dims, material_last_activation=torch.nn.Sigmoid(), 
+            material_embedding=args.material_embedding, material_mlp_dims=args.material_mlp_dims, material_last_activation=torch.nn.Sigmoid(), 
             light_mlp_activation=args.light_mlp_activation, light_mlp_dims=args.light_mlp_dims, multi_sequence_lighting=args.multi_sequence_lighting, num_seq=self.num_seq,
             progressive_hash=args.progressive_hash, progressive_hash_iters=args.progressive_hash_iters,
             hash_include_input=args.hash_include_input, hash_max_resolution=args.hash_max_resolution, hash_levels=args.hash_levels, hash_log2_size=args.hash_log2_size,
@@ -268,10 +264,6 @@ class Avatar():
 
         if extra_vert_attrs is None:
             extra_vert_attrs = dict()
-        if args.material_input == "flame_pos":
-            extra_vert_attrs["flame_position"] = flame.canonical_verts
-        elif args.material_input == "uvs":
-            extra_vert_attrs["uv_coords"] = flame.uvs
         if texture is not None:
             extra_vert_attrs["uv_coords"] = flame.uvs
 
@@ -284,7 +276,7 @@ class Avatar():
         # Shade the final color
         if shader is None:
             shader = self.shader
-        rgb_pred, cbuffers, gbuffer_mask = shader(gbuffers, views, mesh, iteration, material_input=args.material_input, texture=texture)
+        rgb_pred, cbuffers, gbuffer_mask = shader(gbuffers, views, mesh, iteration, texture=texture)
 
         return rgb_pred, gbuffers, cbuffers, mesh, canonical_offsets, deformed_vertices, gbuffer_mask, lbs_weights, shapedirs, posedirs
 
@@ -304,7 +296,7 @@ class Avatar():
     def compute_deformed_verts(mesh: Mesh, flame: FLAME, pose: Tensor, expression: Tensor, deformer_net: Tensor,
                                shapedirs: Tensor = None, posedirs: Tensor = None, lbs_weights: Tensor = None) -> tuple[Tensor,Tensor,Tensor,Tensor]:
         if shapedirs is None or posedirs is None or lbs_weights is None:
-            shapedirs_, posedirs_, lbs_weights_ = deformer_net.query_weights(mesh.vertices.detach() if deformer_net.input == "canonical_pos" else flame.uvs)
+            shapedirs_, posedirs_, lbs_weights_ = deformer_net.query_weights(mesh.vertices.detach())
             if shapedirs is None: shapedirs = shapedirs_
             if posedirs is None: posedirs = posedirs_
             if lbs_weights is None: lbs_weights = lbs_weights_

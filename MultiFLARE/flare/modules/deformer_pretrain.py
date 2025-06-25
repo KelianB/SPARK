@@ -63,7 +63,7 @@ def pretrain_deformer(args, deformer_net, flame, canonical_verts, mesh, device,
     progress_bar = tqdm(range(max_iters))
     for iteration in range(max_iters+1):
         progress_bar.set_description(desc=f"Iter {iteration}")
-        shapedirs, posedirs, lbs_weights = deformer_net.query_weights(canonical_verts if deformer_net.input == "canonical_pos" else flame.uvs)
+        shapedirs, posedirs, lbs_weights = deformer_net.query_weights(canonical_verts)
 
         # Just use a L1 loss - L2 did not work as well for this
         if use_blendshapes:
