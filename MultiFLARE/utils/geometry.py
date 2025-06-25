@@ -107,18 +107,28 @@ def compute_laplacian_uniform(mesh):
 
     return L
 
-def compute_barycentric_coordinates(p: torch.Tensor, v0: torch.Tensor, v1: torch.Tensor, v2: torch.Tensor):
+def compute_barycentric_coordinates(p: torch.Tensor, v0: torch.Tensor, v1: torch.Tensor, v2: torch.Tensor,
+                                    project=False, clamp_to_triangle=True):
     """
     Compute the barycentric coordinates of a point relative to a triangle.
-    The point is assumed to be on the same plane as (v0,v1,v2).
+    If `project` is false, the point is assumed to be on the same plane as (v0,v1,v2).
 
     Args:
         p: Coordinates of a point.
         v0, v1, v2: Coordinates of the triangle vertices.
-
+        clamp_to_triangle: if true, coordinates will be clamped to be within the triangle.
+        project: if true, the points will first be projected to the triangle's plane.
+        
     Returns
-        bary: (w0, w1, w2) barycentric coordinates in the range [0, 1].
+        bary: (w0, w1, w2) barycentric coordinates (in range [0, 1] if clamp_to_triangle=True).
     """
+
+    if project:
+        normals = torch.nn.functional.normalize(torch.cross(v1 - v0, v2 - v0), dim=1)
+        # Project (p - v0) onto the face normals
+        dot_prods = ((p - v0) * normals).sum(-1, keepdim=True) # (n, 1)
+        p = p - dot_prods * normals # (n, 3)
+
     e0 = v1 - v0
     e1 = v2 - v0
     e2 = p - v0
@@ -137,58 +147,111 @@ def compute_barycentric_coordinates(p: torch.Tensor, v0: torch.Tensor, v1: torch
     u = 1.0 - v - w
 
     # Clamp within the triangle
-    uneg = u < 0
-    if uneg.any():
-        t = dot(p-v1, v2-v1) / dot(v2-v1, v2-v1)
-        t = t.clamp(min=0, max=1)
-        u = torch.where(uneg, 0, u)
-        v = torch.where(uneg, 1-t, v)
-        w = torch.where(uneg, t, w)
-    vneg = v < 0
-    if vneg.any():
-        t = dot(p-v2, v0-v2) / dot11
-        t = t.clamp(min=0, max=1)
-        u = torch.where(vneg, t, u)
-        v = torch.where(vneg, 0, v)
-        w = torch.where(vneg, 1-t, w)
-    wneg = w < 0
-    if wneg.any():
-        t = dot02 / dot00
-        t = t.clamp(min=0, max=1)
-        u = torch.where(wneg, 1-t, u)
-        v = torch.where(wneg, t, v)
-        w = torch.where(wneg, 0, w)
+    if clamp_to_triangle:
+        uneg = u < 0
+        if uneg.any():
+            t = dot(p-v1, v2-v1) / dot(v2-v1, v2-v1)
+            t = t.clamp(min=0, max=1)
+            u = torch.where(uneg, 0, u)
+            v = torch.where(uneg, 1-t, v)
+            w = torch.where(uneg, t, w)
+        vneg = v < 0
+        if vneg.any():
+            t = dot(p-v2, v0-v2) / dot11
+            t = t.clamp(min=0, max=1)
+            u = torch.where(vneg, t, u)
+            v = torch.where(vneg, 0, v)
+            w = torch.where(vneg, 1-t, w)
+        wneg = w < 0
+        if wneg.any():
+            t = dot02 / dot00
+            t = t.clamp(min=0, max=1)
+            u = torch.where(wneg, 1-t, u)
+            v = torch.where(wneg, t, v)
+            w = torch.where(wneg, 0, w)
 
-    assert torch.count_nonzero((u < 0) + (u > 1) + (v < 0) + (v > 1) + (w < 0) + (w > 1)) == 0
+        assert torch.count_nonzero((u < 0) + (u > 1) + (v < 0) + (v > 1) + (w < 0) + (w > 1)) == 0
 
     return torch.stack((u, v, w), dim=-1)
+
+def point_to_triangle_distance(p: torch.Tensor, v0: torch.Tensor, v1: torch.Tensor, v2: torch.Tensor):
+    """
+    Compute the squared distance from a point p to a triangle defined by (v0, v1, v2).
+    All tensors are shape (..., 3)
+    Returns:
+        sqr_distance: shape (...)
+    """
+
+    uvw = compute_barycentric_coordinates(p, v0, v1, v2, project=False, clamp_to_triangle=False)
+    # Clamp and normalize
+    uvw = uvw.clamp(min=0, max=1)
+    uvw = uvw / uvw.sum(-1, keepdim=True)
+    u, v, w = uvw.unsqueeze(-1).unbind(-2)
+
+    proj = u*v0 + v*v1 + w*v2
+    dist2 = ((proj - p) ** 2).sum(-1)
+    return dist2
+
+def find_closest_triangles(vertices, faces, points, k=8):
+    """
+    For each point, find the closest triangle from a mesh using:
+    1. Top-k nearest triangle midpoints (approx)
+    2. Exact point-to-triangle distances over top-k
+
+    Args:
+        vertices: (V, 3)
+        faces: (F, 3)
+        points: (N, 3)
+        k: number of candidate triangles to consider per point
+
+    Returns:
+        closest_face_indices: (N,) index of the closest triangle per point
+    """
+    assert vertices.ndim == 2 and vertices.shape[1] == 3
+    assert faces.ndim == 2 and faces.shape[1] == 3
+    assert points.ndim == 2 and points.shape[1] == 3
+    assert k > 0
+    N = points.shape[0]
+    F = faces.shape[0]
+
+    tri_vertices = vertices[faces] # (F, 3, 3)
+    face_midpoints = tri_vertices.mean(dim=1) # (F, 3)
+
+    # Step 1: Approximate nearest k triangles using midpoint distance
+    dists = torch.cdist(points, face_midpoints)  # (N, F)
+
+    # torch.topk crashes with very large inputs (see https://github.com/pytorch/pytorch/issues/82569)
+    if N*F >= 60000000 or k == 1:
+        return dists.argmin(dim=1)
+
+    topk_dists, topk_indices = torch.topk(dists, k, dim=1, largest=False)  # (N, k)
+
+    # Step 2: Gather triangle vertices for top-k faces
+    v0_topk, v1_topk, v2_topk = vertices[faces[topk_indices]].unbind(2) # (N, k, 3)
+
+    # Repeat points to (N, k, 3)
+    p_expanded = points.unsqueeze(1).expand(-1, k, -1)
+
+    # Step 3: Compute exact distances from each point to its k candidate triangles
+    dist2 = point_to_triangle_distance(p_expanded, v0_topk, v1_topk, v2_topk)  # (N, k)
+
+    # Step 4: Find minimum index in top-k, map back to global face index
+    min_k_indices = dist2.argmin(dim=1)  # (N,)
+    closest_face_indices = topk_indices[torch.arange(points.shape[0]), min_k_indices]
+
+    return closest_face_indices
 
 def barycentric_projection(vertices, faces, points):
     # vertices: (V, 3)
     # faces: (F, 3)
     # points: (n, 3)
 
-    # Calculate face normals
-    v0 = vertices[faces[:, 0]]
-    v1 = vertices[faces[:, 1]]
-    v2 = vertices[faces[:, 2]]
-    normals = torch.nn.functional.normalize(torch.cross(v1 - v0, v2 - v0), dim=1)
-
-    # We project onto the triangle whose center is closest
-    face_mid_points = (v0 + v1 + v2) / 3  # (F,3)
-    distances = torch.cdist(points, face_mid_points) # (n, F)
-    closest_face_indices = distances.argmin(dim=1) # (n) 
-    # Project (p - v0) onto the face normals
-    dot_prods = ((points - v0[closest_face_indices]) * normals[closest_face_indices]).sum(-1, keepdim=True) # (n, 1)
-    projections = points - dot_prods * normals[closest_face_indices] # (n, 3)
+    closest_face_indices = find_closest_triangles(vertices, faces, points) # (n) 
 
     # Calculate barycentric coordinates of the projections
-    v0 = vertices[faces[closest_face_indices, 0]].double()
-    v1 = vertices[faces[closest_face_indices, 1]].double()
-    v2 = vertices[faces[closest_face_indices, 2]].double()
+    v0, v1, v2 = vertices[faces[closest_face_indices]].double().unbind(1)
     assert v0.shape == v1.shape == v2.shape == points.shape
-
-    barycentric_coordinates = compute_barycentric_coordinates(projections, v0, v1, v2)
+    barycentric_coordinates = compute_barycentric_coordinates(points, v0, v1, v2, project=True, clamp_to_triangle=True)
     assert barycentric_coordinates.shape == (points.shape[0], 3)
 
     if barycentric_coordinates.isnan().any():
