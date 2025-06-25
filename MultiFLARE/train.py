@@ -224,8 +224,7 @@ def main(avatar: Avatar):
 
             # Appearance regularizations
             if loss_weights["albedo_regularization"] > 0:
-                losses["albedo_regularization"] = albedo_regularization(_adaptive, shader, mesh, device, iteration,
-                                                                        material_input=args.material_input, uv_coords=flame.uvs)
+                losses["albedo_regularization"] = albedo_regularization(_adaptive, shader, mesh, device, iteration)
             if loss_weights["white_light_regularization"] > 0:
                 losses["white_light_regularization"] = white_light(cbuffers)
             if loss_weights["roughness_regularization"] > 0:
@@ -323,7 +322,7 @@ def main(avatar: Avatar):
                     # visualize_grid_clean(debug_rgb_pred, debug_cbuffers, debug_gbuffer, debug_views, avatar.images_save_path / f"grid_{iteration:04d}_clean.png", flame=flame, faces=canonical_mesh.indices)
 
                     visualize_uvs = False
-                    if visualize_uvs and args.material_input == "uvs":
+                    if visualize_uvs:
                         # Visualize UVs
                         uv_coords = debug_gbuffers["uv_coords"][0]
                         uv_coords = torch.cat((uv_coords, torch.zeros_like(uv_coords[...,0:1])), dim=-1) # make it rgB

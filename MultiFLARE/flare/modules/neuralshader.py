@@ -32,7 +32,6 @@ class NeuralShader(torch.nn.Module):
     def __init__(self,
                  aabb=None,
                  activation='relu',
-                 material_input="canonical_pos",
                  material_embedding='positional',
                  material_mlp_dims=None,
                  material_last_activation=None,
@@ -52,8 +51,7 @@ class NeuralShader(torch.nn.Module):
         super().__init__()
         self.device = device
         self.aabb = aabb
-        self.material_input = material_input
-        self.material_input_dims = 2 if material_input == "uvs" else 3
+        self.material_input_dims = 3
         self.progressive_hash = progressive_hash
         self.hash_include_input = hash_include_input
 
@@ -61,7 +59,6 @@ class NeuralShader(torch.nn.Module):
         self._config = {
             "aabb": aabb,
             "activation": activation,
-            "material_input": material_input,
             "material_embedding": material_embedding,
             "material_mlp_dims": material_mlp_dims,
             "material_last_activation": material_last_activation,
@@ -165,23 +162,26 @@ class NeuralShader(torch.nn.Module):
                     return fn
             self.shading_fn_per_seq = shading_fn_per_seq
 
+    """ Compute material properties (albedo, roughness, specular intensity) """
+    def compute_material(self, position, iteration):
+        assert position.ndim == 4
+        B, H, W, _ = position.shape
+        pe_input = self.apply_pe(position=position, iteration=iteration)
+        all_tex = self.material_mlp(pe_input.view(-1, self.inp_size)) 
+        albedo = all_tex[..., :3].view(B, H, W, -1) 
+        roughness = all_tex[..., 3:4].view(B, H, W, 1)
+        spec_int = all_tex[..., 4:5].view(B, H, W, 1)
+        return albedo, roughness, spec_int
 
     """ Compute the shaded color (adapted from nvdiffrec and FLARE). """
-    def forward(self, gbuffers, views, mesh, iteration, material_input="canonical_pos", texture=None):
+    def forward(self, gbuffers, views, mesh, iteration, texture=None):
         cam_pos = torch.cat([v.center.unsqueeze(0) for v in views['camera']], dim=0)
         cam_pos = cam_pos[:, None, None, :]
         deformed_pos = gbuffers["position"]
         normals = self.get_shading_normals(deformed_pos, cam_pos, gbuffers, mesh)
         shading_fn = self.shading_fn_per_seq(views["seq_idx"], iteration) if self.per_sequence_lighting else self.light_mlp
 
-        if material_input == "canonical_pos":
-            position = gbuffers["canonical_position"] # default
-        elif material_input == "flame_pos":
-            position = gbuffers["flame_position"]
-        elif material_input == "uvs":
-            position = gbuffers["uv_coords"]
-        else:
-            raise ValueError(f"Unhandled material_input '{material_input}'")
+        position = gbuffers["canonical_position"]
 
         B, H, W, _ = position.shape
         device = position.device
@@ -198,11 +198,7 @@ class NeuralShader(torch.nn.Module):
             fresnel_constant = 0.04
 
         # Compute material properties (albedo, roughness, specular intensity)
-        pe_input = self.apply_pe(position=position, iteration=iteration)
-        all_tex = self.material_mlp(pe_input.view(-1, self.inp_size)) 
-        albedo = all_tex[..., :3].view(B, H, W, -1) 
-        roughness = all_tex[..., 3:4].view(B, H, W, 1)
-        spec_int = all_tex[..., 4:5].view(B, H, W, 1)
+        albedo, roughness, spec_int = self.compute_material(position, iteration)
 
         # Optionally override the albedo with a texture
         if texture is not None:
@@ -279,8 +275,7 @@ class NeuralShader(torch.nn.Module):
     def apply_pe(self, position, iteration=None):
         position = position.view(-1, self.material_input_dims)
         # Normalize input
-        if self.material_input != "uvs": # uvs are already in [0,1] range
-            position = (position - self.aabb[0]) / (self.aabb[1] - self.aabb[0])
+        position = (position - self.aabb[0]) / (self.aabb[1] - self.aabb[0])
         position = torch.clamp(position, min=0, max=1)
         pe_input = self.embed_fn(position.contiguous()).float()
         if self.progressive_hash:

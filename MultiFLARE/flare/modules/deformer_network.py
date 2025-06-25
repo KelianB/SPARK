@@ -15,7 +15,6 @@ class ForwardDeformer(nn.Module):
                 num_exp=50,
                 aabb=None,
                 weight_norm=True,
-                deformer_input="canonical_pos",
                 overrides=False,
                 expr_only=False,
             ):
@@ -27,14 +26,13 @@ class ForwardDeformer(nn.Module):
             "num_exp":num_exp,
             "aabb":aabb,
             "weight_norm":weight_norm,
-            "deformer_input":deformer_input,
             "overrides": overrides,
             "expr_only": expr_only,
         }
 
         self.flame = flame
         #  ============================== pose correctives, expression blendshapes and linear blend skinning weights  ==============================
-        d_in = 3 if deformer_input == "canonical_pos" else 2
+        d_in = 3
         d_out = 36 * 3 + num_exp * 3 
 
         self.num_exp = num_exp
@@ -151,10 +149,6 @@ class ForwardDeformer(nn.Module):
             lbs_weights = self.flame.lbs_weights_updated
             
         return shapedirs, posedirs, lbs_weights
-
-    @property
-    def input(self):
-        return self._config["deformer_input"]
 
     @property
     def overrides(self):
