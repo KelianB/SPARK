@@ -83,7 +83,10 @@ SPARK is a two-stage approach. First, run [MultiFLARE](./MultiFLARE/) to reconst
 ### 1. MultiFLARE
 ```bash
 cd MultiFLARE
-python train.py --config configs/example.txt)
+python train.py --config configs/example.txt
+
+# Export neutral mesh
+python export_mesh.py --config configs/example.txt --resume 3000 --out_dir /tmp/example_mesh --tex_type albedo
 ```
 
 We advise starting from the provided example config and modifying `input_dir`, `train_dir` and `output_dir`. For a list of all parameters, please refer to [arguments.py](./MultiFLARE/arguments.py) or the output of `python train.py --help`. Parameters can be passed either in the config file or as command line arguments.

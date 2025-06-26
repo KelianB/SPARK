@@ -178,7 +178,7 @@ class NeuralShader(torch.nn.Module):
         cam_pos = torch.cat([v.center.unsqueeze(0) for v in views['camera']], dim=0)
         cam_pos = cam_pos[:, None, None, :]
         deformed_pos = gbuffers["position"]
-        normals = self.get_shading_normals(deformed_pos, cam_pos, gbuffers, mesh)
+        normals = gbuffers["shading_normals"] if "shading_normals" in gbuffers else self.get_shading_normals(deformed_pos, cam_pos, gbuffers, mesh)
         shading_fn = self.shading_fn_per_seq(views["seq_idx"], iteration) if self.per_sequence_lighting else self.light_mlp
 
         position = gbuffers["canonical_position"]
