@@ -11,6 +11,7 @@ from make_comparison_video import fix_mask, blend
 
 # MultiFLARE imports
 from utils.dataset import DeviceDataLoader, find_collate, load_img
+from utils.color import srgb_to_rgb
 from flare.core import Mesh
 
 from argparse import Namespace
@@ -34,7 +35,7 @@ def main(wrapper: FaceTrackerWrapper, args: Namespace, dataset):
 
     if args.texture:
         texture = load_img(args.texture).to(device) # (H, W, 4)
-        # texture = srgb_to_rgb(texture)
+        texture = srgb_to_rgb(texture)
         wrapper.decoder.texture = texture
 
     fps = args.framerate / args.visu_interval
