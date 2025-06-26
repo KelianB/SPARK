@@ -37,9 +37,6 @@ def main(avatar: Avatar):
 
     debug_views = to_device_recursive(debug_views, device)
 
-    if not args.resume:
-        canonical_mesh.write(avatar.meshes_save_path / "init_mesh.obj")
-
     #################### Loss functions and weights ####################
     loss_weights = {
         "mask": args.weight_mask,
@@ -355,13 +352,13 @@ def main(avatar: Avatar):
 
             # Save checkpoint
             if is_save_iter:
-                avatar.save_all(f"{iteration:06d}")
+                avatar.save_all(f"{iteration:06d}", iteration)
 
     end = time.time()
     logging.info(f"Done! Time taken: {time.strftime('%H:%M:%S', time.gmtime(end - start))}")
 
     # Save final checkpoint
-    avatar.save_all("latest")
+    avatar.save_all("latest", iteration)
 
 
 if __name__ == "__main__":

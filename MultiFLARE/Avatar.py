@@ -140,8 +140,9 @@ class Avatar():
             mesh_path = self.meshes_save_path / f"mesh_{args.resume:06d}.obj"
             canonical_mesh = Mesh.read(mesh_path, device=device)
         else:
+            F = flame.faces.shape[0]
             canonical_mesh = Mesh(flame.canonical_verts.squeeze(0), flame.faces,
-                                        uv_coords=flame.verts_uvs, uv_idx=flame.textures_idx, device=device)
+                                  uv_coords=flame.uvs.view(F*3, 2), uv_idx=torch.arange(0, F*3, device=device).view(F, 3), device=device)
         canonical_mesh.compute_connectivity()
         self.canonical_mesh = canonical_mesh
 
@@ -197,39 +198,38 @@ class Avatar():
         self.renderer = renderer
         self.channels_gbuffer = channels_gbuffer
 
-    def save_all(self, suffix: str):
+    @torch.no_grad()
+    def save_all(self, suffix: str, iteration: int):
         shader, deformer_net, expr_train, pose_train, cams_K_train, flame, photo_loss_cache = \
             self.shader, self.deformer_net, self.expr_train, self.pose_train, self.cams_K_train, self.flame, self.photo_loss_cache
 
-        # Bake displacements into the canonical mesh
-        mesh, _ = Avatar.compute_displaced_mesh(self.canonical_mesh, self.displacements(), flame)
+        from export_mesh import export_mesh
+        export_mesh(self, 512, "albedo", self.meshes_save_path, f"mesh_{suffix}.obj", iteration=iteration)
 
-        with torch.no_grad():
-            mesh.write(self.meshes_save_path / f"mesh_{suffix}.obj")                                
-            shader.save(self.networks_save_path / f'shader_{suffix}.pt')
-            deformer_net.save(self.networks_save_path / f'deformer_{suffix}.pt')
-            torch.save({
-                "expr_train": expr_train.cpu(),
-                "pose_train": pose_train.cpu(),
-                "cams_K_train": cams_K_train.cpu(),
-            }, self.networks_save_path / f"tracking_{suffix}.pt")
-            torch.save({
-                "photo_loss_cache": photo_loss_cache.cpu(),
-                **dict([f"mask.v.{key}", mask.cpu()] for key,mask in flame.mask.v.items()),
-                **dict([f"mask.f.{key}", mask.cpu()] for key,mask in flame.mask.f.items()),
-                "full_lmk_verts_idx": flame.full_lmk_verts_idx.cpu(),
-                "full_lmk_bary_coords": flame.full_lmk_bary_coords.cpu(),
-                "static_lmk_verts_idx": flame.static_lmk_verts_idx.cpu(),
-                "static_lmk_bary_coords": flame.static_lmk_bary_coords.cpu(),
-                "dynamic_lmk_verts_idx": flame.dynamic_lmk_verts_idx.cpu(),
-                "dynamic_lmk_bary_coords": flame.dynamic_lmk_bary_coords.cpu(),
-                "static_lmk_verts_idx_mediapipe": flame.static_lmk_verts_idx_mediapipe.cpu(),
-                "static_lmk_bary_coords_mediapipe": flame.static_lmk_bary_coords_mediapipe.cpu(),
-                "shapedirs_expression_updated": flame.shapedirs_expression_updated.cpu(),
-                "lbs_weights_updated": flame.lbs_weights_updated.cpu(),
-                "posedirs_updated": flame.posedirs_updated.cpu(),
-                "uvs": flame.uvs.cpu(),
-            }, self.networks_save_path / f"misc_{suffix}.pt")
+        shader.save(self.networks_save_path / f'shader_{suffix}.pt')
+        deformer_net.save(self.networks_save_path / f'deformer_{suffix}.pt')
+        torch.save({
+            "expr_train": expr_train.cpu(),
+            "pose_train": pose_train.cpu(),
+            "cams_K_train": cams_K_train.cpu(),
+        }, self.networks_save_path / f"tracking_{suffix}.pt")
+        torch.save({
+            "photo_loss_cache": photo_loss_cache.cpu(),
+            **dict([f"mask.v.{key}", mask.cpu()] for key,mask in flame.mask.v.items()),
+            **dict([f"mask.f.{key}", mask.cpu()] for key,mask in flame.mask.f.items()),
+            "full_lmk_verts_idx": flame.full_lmk_verts_idx.cpu(),
+            "full_lmk_bary_coords": flame.full_lmk_bary_coords.cpu(),
+            "static_lmk_verts_idx": flame.static_lmk_verts_idx.cpu(),
+            "static_lmk_bary_coords": flame.static_lmk_bary_coords.cpu(),
+            "dynamic_lmk_verts_idx": flame.dynamic_lmk_verts_idx.cpu(),
+            "dynamic_lmk_bary_coords": flame.dynamic_lmk_bary_coords.cpu(),
+            "static_lmk_verts_idx_mediapipe": flame.static_lmk_verts_idx_mediapipe.cpu(),
+            "static_lmk_bary_coords_mediapipe": flame.static_lmk_bary_coords_mediapipe.cpu(),
+            "shapedirs_expression_updated": flame.shapedirs_expression_updated.cpu(),
+            "lbs_weights_updated": flame.lbs_weights_updated.cpu(),
+            "posedirs_updated": flame.posedirs_updated.cpu(),
+            "uvs": flame.uvs.cpu(),
+        }, self.networks_save_path / f"misc_{suffix}.pt")
 
     def run(self,
             views,
