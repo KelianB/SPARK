@@ -10,7 +10,7 @@ import logging
 from dataset import MultiVideoDataset
 from utils.visualization import save_img, convert_uint, visualize_grid, tensor_vis_landmarks
 from utils.dataset import DeviceDataLoader, SemanticMask, to_device_recursive
-from utils.geometry import remesh_FLAME
+from utils.geometry import remesh_FLAME, subdivide_FLAME
 from flare.core import Mesh
 from flare.losses import *
 from Avatar import Avatar
@@ -148,20 +148,28 @@ def main(avatar: Avatar):
             # ==============================================================================================
             if iteration in args.remesh_iterations:
                 print("=="*50)
-                logging.info(f"Remeshing at iteration {iteration}")
-                # Remesh with half the average edge length
-                e0, e1 = mesh.edges.unbind(1)
-                average_edge_length = torch.linalg.norm(mesh.vertices[e0] - mesh.vertices[e1], dim=-1).mean()
-                h = float(average_edge_length/1.5)
+                mesh, *_ = Avatar.compute_displaced_mesh(canonical_mesh, avatar.displacements(), flame)
 
-                # These groups of vertices will not be remeshed
-                separate_verts_masks = {"eye_left": flame.mask.v.left_eyeball, "eye_right": flame.mask.v.right_eyeball}
-                if flame.has_teeth:
-                    separate_verts_masks["teeth"] = flame.mask.v.teeth
+                logging.info(f"Remeshing at iteration {iteration} (method: {args.remesh_method})")
+                if args.remesh_method == "botsch":
+                    # Reduce the average edge length
+                    e0, e1 = mesh.edges.unbind(1)
+                    average_edge_length = torch.linalg.norm(mesh.vertices[e0] - mesh.vertices[e1], dim=-1).mean()
+                    h = float(average_edge_length/1.5)
 
-                _, v_remeshed, f_remeshed = remesh_FLAME(flame, mesh.vertices, mesh.indices, h, separate_verts_masks)
+                    # These groups of vertices will not be remeshed
+                    separate_verts_masks = {"eye_left": flame.mask.v.left_eyeball, "eye_right": flame.mask.v.right_eyeball}
+                    if flame.has_teeth:
+                        separate_verts_masks["teeth"] = flame.mask.v.teeth
 
-                canonical_mesh = Mesh(v_remeshed, f_remeshed, device=device)
+                    _, v_remeshed, f_remeshed = remesh_FLAME(flame, mesh.vertices, mesh.indices, h, separate_verts_masks)
+                else:
+                    v_remeshed, f_remeshed = subdivide_FLAME(flame, mesh.vertices, mesh.indices, levels=1)
+                    
+                F = f_remeshed.shape[0]
+                uv_coords = flame.uvs.view(F*3, 2)
+                uv_idx = torch.arange(0, F*3, device=device).view(F, 3)
+                canonical_mesh = Mesh(v_remeshed, f_remeshed, uv_coords=uv_coords, uv_idx=uv_idx, device=device)
                 canonical_mesh.compute_connectivity()
                 avatar.canonical_mesh = canonical_mesh
 
@@ -308,7 +316,12 @@ def main(avatar: Avatar):
             if is_visualize_iter:
                 with torch.no_grad():
                     MultiVideoDataset.override_values_batch(debug_views, pose_train, expr_train, cams_K_train)
-                    debug_rgb_pred, debug_gbuffers, debug_cbuffers, _, _, deformed_vertices, *_ = avatar.run(debug_views, iteration)
+                    extra_rast_attrs = {}
+
+                    visualize_uvs = False
+                    if visualize_uvs: extra_rast_attrs["uvs"] = flame.uvs
+
+                    debug_rgb_pred, debug_gbuffers, debug_cbuffers, _, _, deformed_vertices, *_ = avatar.run(debug_views, iteration, extra_rast_attrs=extra_rast_attrs)
 
                     # Landmarks visualization
                     if loss_weights_initial["landmarks_L1"] > 0:
@@ -321,10 +334,9 @@ def main(avatar: Avatar):
                     visualize_grid(debug_rgb_pred, debug_cbuffers, debug_gbuffers, debug_views, avatar.images_save_path / f"grid_{iteration:04d}.png")
                     # visualize_grid_clean(debug_rgb_pred, debug_cbuffers, debug_gbuffer, debug_views, avatar.images_save_path / f"grid_{iteration:04d}_clean.png", flame=flame, faces=canonical_mesh.indices)
 
-                    visualize_uvs = False
                     if visualize_uvs:
                         # Visualize UVs
-                        uv_coords = debug_gbuffers["uv_coords"][0]
+                        uv_coords = debug_gbuffers["uvs"][0]
                         uv_coords = torch.cat((uv_coords, torch.zeros_like(uv_coords[...,0:1])), dim=-1) # make it rgB
                         outdir = avatar.images_save_path / "uv_coords"
                         outdir.mkdir(parents=True, exist_ok=True)

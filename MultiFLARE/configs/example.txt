@@ -6,7 +6,7 @@ batch_size = 4
 sample_idx_ratio = 4
 
 iterations = 3000
-remesh_iterations = [500]
+remesh_iterations = [500, 1000]
 save_frequency = 1000
 
 # Optimizers

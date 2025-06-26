@@ -431,6 +431,60 @@ def merge_meshes(*meshes: Tuple[torch.Tensor, torch.Tensor, Dict[str, torch.Tens
     return (verts, faces, attrs), updated_verts_idx
 
 @torch.no_grad()
+def subdivide_FLAME(flame: FLAME, verts: torch.Tensor, faces: torch.Tensor, levels=1):
+    old_V = len(verts)
+    device = verts.device
+
+    # Set vertex attributes to be re-projected on the remeshed surface
+    vert_attrs = {}
+    vert_attrs["shapedirs"] = flame.shapedirs_expression_updated # (old_v, 3, n_exp)
+    vert_attrs["lbs_weights"] = flame.lbs_weights_updated # (old_v, J)
+    vert_attrs["posedirs"] = flame.posedirs_updated.permute(1, 0).view(old_V, 3, -1) # (P, 3*V) => (3*V, P) => (V, 3, P)
+    for key, mask in flame.mask.f.items():
+        vert_attrs[f"mask.{key}"] = mask.detach().to(device)
+    corner_attrs = {}
+    corner_attrs["uvs"] = flame.uvs
+        
+    # Get landmark positions (for updating the indices)
+    lmk_pos = flame.get_landmark_positions(verts.unsqueeze(0)).squeeze(0) # (L, 3)
+    lmk_pos_static = flame.get_landmark_positions(verts.unsqueeze(0), "static").squeeze(0) # (L, 3)
+    lmk_pos_dynamic = flame.get_landmark_positions(verts.unsqueeze(0), "dynamic").squeeze(0) # (L, 3)
+    lmk_pos_mediapipe = flame.get_landmark_positions(verts.unsqueeze(0), "static_mediapipe").squeeze(0) # (L, 3)
+
+    verts_updated, faces_updated, vert_attrs_updated, corner_attrs_updated = subdivide_mesh(verts, faces, vert_attrs=vert_attrs, corner_attrs=corner_attrs, levels=levels)
+    
+    # Update vertex and corner attributes
+    flame.uvs = corner_attrs_updated["uvs"]
+    flame.shapedirs_expression_updated = vert_attrs_updated["shapedirs"]
+    flame.lbs_weights_updated = vert_attrs_updated["lbs_weights"]
+    flame.posedirs_updated = vert_attrs_updated["posedirs"].contiguous().view(len(verts_updated)*3, -1).permute(1, 0) # (V, 3, P) => (P, 3*V)
+    assert flame.shapedirs_expression_updated.shape[1:] == flame.shapedirs_expression.shape[1:]
+    assert flame.lbs_weights_updated.shape[1:] == flame.lbs_weights.shape[1:]
+    assert flame.posedirs_updated.shape[:-1] == flame.posedirs.shape[:-1]
+    for key in vert_attrs_updated:
+        if key.startswith("mask."):
+            f_mask = vert_attrs_updated[key]
+            flame.mask.f.register_buffer(key[5:], f_mask)
+            v_mask = (f_mask > 0.5).nonzero().squeeze(1)
+            flame.mask.v.register_buffer(key[5:], v_mask)
+
+    # Reproject the landmarks positions onto the remeshed surface
+    lmk_face_idx, lmk_bary_coords = barycentric_projection(verts_updated, faces_updated, lmk_pos)
+    flame.full_lmk_verts_idx = faces_updated[lmk_face_idx] # (L, 3)
+    flame.full_lmk_bary_coords = lmk_bary_coords.unsqueeze(0) # (1, L, 3)
+    lmk_static_face_idx, lmk_static_bary_coords = barycentric_projection(verts_updated, faces_updated, lmk_pos_static)
+    flame.static_lmk_verts_idx = faces_updated[lmk_static_face_idx] # (L, 3)
+    flame.static_lmk_bary_coords = lmk_static_bary_coords.unsqueeze(0) # (1, L, 3)
+    lmk_dyn_face_idx, lmk_dyn_bary_coords = barycentric_projection(verts_updated, faces_updated, lmk_pos_dynamic)
+    flame.dynamic_lmk_verts_idx = faces_updated[lmk_dyn_face_idx].view_as(flame.dynamic_lmk_verts_idx) # (A, L, 3)
+    flame.dynamic_lmk_bary_coords = lmk_dyn_bary_coords.unsqueeze(0).view_as(flame.dynamic_lmk_bary_coords) # (1, A, L, 3)
+    lmk_static_face_idx_mediapipe, lmk_static_bary_coords_mediapipe = barycentric_projection(verts_updated, faces_updated, lmk_pos_mediapipe)
+    flame.static_lmk_verts_idx_mediapipe = faces_updated[lmk_static_face_idx_mediapipe] # (L, 3)
+    flame.static_lmk_bary_coords_mediapipe = lmk_static_bary_coords_mediapipe.unsqueeze(0) # (1, L, 3)
+
+    return verts_updated, faces_updated
+
+@torch.no_grad()
 def remesh_FLAME(flame: FLAME, vertices: torch.Tensor, faces: torch.Tensor, h: float, separate_verts_masks: Dict):
     # separate_verts_masks: specifies lists of vertices that should not be remeshed. These will be removed from the mesh before remeshing, and re-added afterwards. 
     old_V = len(vertices)
@@ -443,7 +497,6 @@ def remesh_FLAME(flame: FLAME, vertices: torch.Tensor, faces: torch.Tensor, h: f
     vert_attrs["posedirs"] = flame.posedirs_updated.permute(1, 0).view(old_V, 3, -1) # (P, 3*V) => (3*V, P) => (V, 3, P)
     for key, mask in flame.mask.f.items():
         vert_attrs[f"mask.{key}"] = mask.detach().to(device)
-    vert_attrs["uvs"] = flame.uvs
 
     # Get landmark positions (for updating the indices)
     lmk_pos = flame.get_landmark_positions(vertices.unsqueeze(0)).squeeze(0) # (L, 3)
@@ -496,7 +549,6 @@ def remesh_FLAME(flame: FLAME, vertices: torch.Tensor, faces: torch.Tensor, h: f
             flame.mask.f.register_buffer(key[5:], f_mask)
             v_mask = (f_mask > 0.5).nonzero().squeeze(1)
             flame.mask.v.register_buffer(key[5:], v_mask)
-    flame.uvs = merged_attrs["uvs"]
 
     # Reproject the landmarks positions onto the remeshed surface
     lmk_face_idx, lmk_bary_coords = barycentric_projection(merged_verts, merged_faces, lmk_pos)
@@ -512,10 +564,17 @@ def remesh_FLAME(flame: FLAME, vertices: torch.Tensor, faces: torch.Tensor, h: f
     flame.static_lmk_verts_idx_mediapipe = merged_faces[lmk_static_face_idx_mediapipe] # (L, 3)
     flame.static_lmk_bary_coords_mediapipe = lmk_static_bary_coords_mediapipe.unsqueeze(0) # (1, L, 3)
 
+    # Update uvs: naively project all new vertices onto the old mesh individually,
+    # then use those barycentric coordinates to reinterpolate UVs.
+    # This fails at seams, since adjacent vertices may project to triangles on either side of a seam.
+    face_idx, bary_coords = barycentric_projection(vertices, faces, merged_verts) # face_idx: (Vn), bary_coords: (Vn, 3)
+    uvs = torch.einsum("vfi,vf->vi", [flame.uvs[face_idx], bary_coords]) # (Vn, 2)
+    flame.uvs = uvs[merged_faces] # (F, 3, 2)
+
     return new_verts_idx_dict, merged_verts, merged_faces
 
-
-def attrs_to_single_tensor(attrs: Dict):
+def pack_vert_attrs(attrs: Dict):
+    """ Flatten multiple vertex attributes (of shape (V, ...)) into a single (V, n) tensor. """
     if len(attrs) == 0:
         return None
     any_attr = next(iter(attrs.values()))
@@ -531,35 +590,93 @@ def attrs_to_single_tensor(attrs: Dict):
         offset += v.size(1)
     return attrs_tensor
 
-def single_tensor_to_attrs(attrs_tensor: torch.Tensor, original_attrs: Dict):
+def unpack_vert_attrs(attrs_tensor: torch.Tensor, original_attrs: Dict):
+    """ Inverse of `pack_vert_attrs`. """
     attrs = {}
     offset = 0
     for k,v in original_attrs.items():
         flattened_size = prod(v.shape[1:])
-        attrs[k] = attrs_tensor[:, offset:offset+flattened_size].view(-1, *v.shape[1:]).to(v.dtype)
+        attrs[k] = attrs_tensor[:, offset:offset+flattened_size].view(-1, *v.shape[1:]).to(v.dtype).contiguous()
         offset += flattened_size
     return attrs
 
-def subdivide_mesh(verts: torch.Tensor, faces: torch.Tensor, vert_attrs: Dict[str, torch.Tensor] = None, levels=1):
-    attrs_provided = vert_attrs is not None
+def pack_corner_attrs(attrs: Dict):
+    """ Flatten multiple per-corner attributes (of shape (F, 3, ...)) into a single (F, 3, n) tensor. """
+    if len(attrs) == 0:
+        return None
+    any_attr = next(iter(attrs.values()))
+    nf = any_attr.size(0) # number of faces
+    assert all(v.size(0) == nf for v in attrs.values())
+    # Flatten each attribute
+    attrs = {k: v.contiguous().view(nf, 3, -1) for k, v in attrs.items()}
+    # Create and fill new tensor
+    attrs_tensor = torch.zeros((nf, 3, sum(v.size(2) for v in attrs.values())), dtype=torch.float, device=any_attr.device)
+    offset = 0
+    for v in attrs.values():
+        attrs_tensor[:,:,offset:offset+v.size(2)] = v
+        offset += v.size(2)
+    return attrs_tensor
+
+def unpack_corner_attrs(attrs_tensor: torch.Tensor, original_attrs: Dict):
+    """ Inverse of `pack_corner_attrs`. """
+    attrs = {}
+    offset = 0
+    for k,v in original_attrs.items():
+        flattened_size = prod(v.shape[2:])
+        attrs[k] = attrs_tensor[:, :, offset:offset+flattened_size].view(-1, 3, *v.shape[2:]).to(v.dtype).contiguous()
+        offset += flattened_size
+    return attrs
+
+def subdivide_mesh(
+        verts: torch.Tensor,
+        faces: torch.Tensor,
+        vert_attrs: Dict[str, torch.Tensor] = None,
+        corner_attrs: Dict[str, torch.Tensor] = None,
+        levels=1):
+    assert verts.ndim == 2 and faces.ndim == 2
+
     if vert_attrs is None:
         vert_attrs = dict()
+    if corner_attrs is None:
+        corner_attrs = dict()
 
-    def aux(verts: torch.Tensor, faces: torch.Tensor, vert_attrs: Dict[str, torch.Tensor]):
+    assert all(v.shape[0] == verts.shape[0] for v in vert_attrs.values())
+    assert all(v.shape[0] == faces.shape[0] and v.shape[1] == 3 and v.ndim >= 3 for v in corner_attrs.values())
+
+    subdivider = SubdivideMeshes()
+
+    def aux(verts: torch.Tensor, faces: torch.Tensor, vert_attrs: Dict[str, torch.Tensor], corner_attrs: Dict[str, torch.Tensor]):
         # Create a p3d.Meshes object
         mesh = Meshes(verts=[verts], faces=[faces])
         # Serialize the vertex attributes to (V, n) tensors
-        feats = attrs_to_single_tensor(vert_attrs)
+        feats = pack_vert_attrs(vert_attrs)
         # Subdivide the mesh using Pytorch3D
-        subdivider = SubdivideMeshes()
         subdivided_mesh, subdivided_feats = subdivider(mesh, feats)
         subdivided_verts = subdivided_mesh.verts_list()[0]
         subdivided_faces = subdivided_mesh.faces_list()[0]
         # Retrieve the subdivided vertex attributes            
-        subdivided_attrs = single_tensor_to_attrs(subdivided_feats, vert_attrs)
-        return subdivided_verts, subdivided_faces, subdivided_attrs
+        subdivided_attrs = unpack_vert_attrs(subdivided_feats, vert_attrs)
+
+        if len(corner_attrs) > 0:
+            # Flatten attributes from several (F, 3, ni) tensors to a single (F, 3, sum_i(ni))
+            corner_feats = pack_corner_attrs(corner_attrs)
+            F, _, n = corner_feats.shape
+            # Create a mesh where all verts are duplicated for each face
+            pseudo_verts = corner_feats.reshape(F * 3, n)
+            pseudo_faces = torch.arange(F * 3, device=faces.device).reshape(F, 3)
+            pseudo_mesh = Meshes(verts=[pseudo_verts], faces=[pseudo_faces])
+            # Subdivide and retrieve the subdivided features
+            subdivided_pseudo_mesh, subdivided_feats = subdivider(pseudo_mesh, pseudo_verts)
+            # Map back to per-corner attributes
+            subdivided_feats = subdivided_feats[subdivided_pseudo_mesh.faces_list()[0]].reshape(-1, 3, n) # (F', 3, n)
+            subdivided_corner_attrs = unpack_corner_attrs(subdivided_feats, corner_attrs)
+            subdivided_corner_attrs = {k: v.contiguous() for k,v in subdivided_corner_attrs.items()}
+        else:
+            subdivided_corner_attrs = {}
+
+        return subdivided_verts, subdivided_faces, subdivided_attrs, subdivided_corner_attrs
    
     # Perform subdivisions
     for _ in range(levels):
-        verts, faces, vert_attrs = aux(verts, faces, vert_attrs)
-    return (verts, faces, vert_attrs) if attrs_provided else (verts, faces)
+        verts, faces, vert_attrs, corner_attrs = aux(verts, faces, vert_attrs, corner_attrs)
+    return verts, faces, vert_attrs, corner_attrs

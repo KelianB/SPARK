@@ -205,7 +205,7 @@ class NeuralShader(torch.nn.Module):
             # texture: (B, th, tw, 3)
             assert texture.shape[1] == texture.shape[2]
             texture_res = texture.shape[1]
-            uvs = (gbuffers["uv_coords"] * texture_res).round().long() # (bz, H, W)
+            uvs = (gbuffers["uvs"] * texture_res).round().long() # (bz, H, W)
             u, v = uvs.unbind(-1)
             albedo = torch.stack([texture[i, texture_res-1-v[i], u[i]] for i in range(B)])
             # Handle alpha
