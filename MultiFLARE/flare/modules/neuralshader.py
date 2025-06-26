@@ -203,11 +203,9 @@ class NeuralShader(torch.nn.Module):
         # Optionally override the albedo with a texture
         if texture is not None:
             # texture: (B, th, tw, 3)
-            assert texture.shape[1] == texture.shape[2]
-            texture_res = texture.shape[1]
-            uvs = (gbuffers["uvs"] * texture_res).round().long() # (bz, H, W)
-            u, v = uvs.unbind(-1)
-            albedo = torch.stack([texture[i, texture_res-1-v[i], u[i]] for i in range(B)])
+            uvs = gbuffers["uvs"] * 2 - 1 # (B, H, W, 2)
+            uvs[..., 1] = -uvs[..., 1]
+            albedo = torch.nn.functional.grid_sample(texture.permute(0,3,1,2), uvs, mode="bilinear", padding_mode="border").permute(0,2,3,1) # (B, H, W, 3|4)
             # Handle alpha
             if albedo.shape[-1] == 4:
                 albedo, alpha = albedo[..., :3], albedo[..., (3,)]
