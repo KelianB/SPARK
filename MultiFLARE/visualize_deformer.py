@@ -76,8 +76,8 @@ def main(avatar: Avatar):
         ax1.matshow(deformer_cov_matrix.cpu())
         fig.savefig(visualization_dir / "blendshapes_covariance.png")
 
-        extra_vert_attrs = dict()
-        extra_vert_attrs_flame = dict()
+        extra_rast_attrs = dict()
+        extra_rast_attrs_flame = dict()
 
         # (P,3*V) => (P,V,3)
         deformer_posedirs = deformer_posedirs.view(-1, n_verts, 3)
@@ -95,24 +95,24 @@ def main(avatar: Avatar):
         flame_posedirs = flame_posedirs.permute(1, 0, 2).view(n_verts_initial, n_joints-1, 9, -1) # (P,V,3) => (V,P,3) => (V,J,9,3)
 
         for exp_i in range(n_exp):
-            extra_vert_attrs_flame[f"flame_expr_{exp_i}"] = flame_shapedirs[..., exp_i].contiguous()
+            extra_rast_attrs_flame[f"flame_expr_{exp_i}"] = flame_shapedirs[..., exp_i].contiguous()
         for exp_i in range(n_exp_deformer):
-            extra_vert_attrs[f"deformer_expr_{exp_i}"] = deformer_shapedirs[..., exp_i].contiguous()
+            extra_rast_attrs[f"deformer_expr_{exp_i}"] = deformer_shapedirs[..., exp_i].contiguous()
 
         for j in range(n_joints):
-            extra_vert_attrs[f"deformer_lbs_{j}"] = deformer_lbs_weights[...,(j,)].contiguous()
-            extra_vert_attrs_flame[f"flame_lbs_{j}"] = flame_lbs_weights[...,(j,)].contiguous()
+            extra_rast_attrs[f"deformer_lbs_{j}"] = deformer_lbs_weights[...,(j,)].contiguous()
+            extra_rast_attrs_flame[f"flame_lbs_{j}"] = flame_lbs_weights[...,(j,)].contiguous()
             if j < n_joints-1:
-                extra_vert_attrs[f"deformer_posedirs_{j}"] = deformer_posedirs[:,j].mean(dim=1).contiguous() # mean over all 9 coeffs corresponding to a joint's rot matrix
-                extra_vert_attrs_flame[f"flame_posedirs_{j}"] = flame_posedirs[:,j].mean(dim=1).contiguous()
+                extra_rast_attrs[f"deformer_posedirs_{j}"] = deformer_posedirs[:,j].mean(dim=1).contiguous() # mean over all 9 coeffs corresponding to a joint's rot matrix
+                extra_rast_attrs_flame[f"flame_posedirs_{j}"] = flame_posedirs[:,j].mean(dim=1).contiguous()
 
         logging.info("Rasterizing")
         # Rasterization (deformer)
         gbuffers = renderer.render_batch(view["camera"], deformed_vertices.contiguous(), deformed_normals=None, channels=[], with_antialiasing=False,
-                                         canonical_v=None, canonical_idx=canonical_mesh.indices, extra_vert_attrs=extra_vert_attrs)
+                                         canonical_v=None, canonical_idx=canonical_mesh.indices, extra_rast_attrs=extra_rast_attrs)
         # Rasterization (FLAME)
         gbuffers_flame = renderer.render_batch(view["camera"], flame_deformed_vertices.contiguous(), deformed_normals=None, channels=[], with_antialiasing=False,
-                                               canonical_v=None, canonical_idx=flame.faces, extra_vert_attrs=extra_vert_attrs_flame)
+                                               canonical_v=None, canonical_idx=flame.faces, extra_rast_attrs=extra_rast_attrs_flame)
 
         logging.info("Rendering heatmaps for expression basis")
         deformer_expr_imgs = [gbuffers[f"deformer_expr_{e}"].squeeze(0) for e in range(n_exp_deformer)]

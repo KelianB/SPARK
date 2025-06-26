@@ -99,14 +99,15 @@ class Renderer:
         rast, rast_out_db = dr.rasterize(self.glctx, vertices_clip_space, indices.int(), resolution=resolution)
         return rast, rast_out_db, vertices_clip_space
 
-    def render_batch(self, cams, deformed_vertices, deformed_normals, channels, with_antialiasing, canonical_v, canonical_idx, extra_vert_attrs=None) -> dict[str, torch.Tensor]:
+    def render_batch(self, cams, deformed_vertices, deformed_normals, channels, with_antialiasing, canonical_v, canonical_idx, extra_rast_attrs=None) -> dict[str, torch.Tensor]:
         """ Render G-buffers from a set of cameras.
 
         Args:
             cams (List[Camera])
             ... 
         """
-        batch_size = deformed_vertices.shape[0]
+        B = deformed_vertices.shape[0]
+        F = canonical_idx.shape[0]
 
         idx = canonical_idx.int()
         rast, rast_out_db, deformed_vertices_clip_space = self.rasterize(deformed_vertices, idx, cams)
@@ -122,15 +123,15 @@ class Renderer:
 
         # canonical points in G-buffer
         if "canonical_position" in channels:
-            canonical_verts_batch = canonical_v.unsqueeze(0).repeat(batch_size, 1, 1)
+            canonical_verts_batch = canonical_v.unsqueeze(0).repeat(B, 1, 1)
             canonical_position, _ = dr.interpolate(canonical_verts_batch, rast, idx, rast_db=rast_out_db)
             gbuffer["canonical_position"] = dr.antialias(canonical_position, rast, deformed_vertices_clip_space, idx) if with_antialiasing else canonical_position
 
         # normals in G-buffer
         if "normal" in channels:
             # cache this as it will rarely change
-            if not hasattr(self, "_face_idx") or self._face_idx.shape != canonical_idx.shape:
-                self._face_idx = torch.arange(canonical_idx.shape[0], dtype=torch.int32, device=self.device).unsqueeze(1).repeat(1, 3) # (F, 3)
+            if not hasattr(self, "_face_idx") or self._face_idx.shape[0] != F:
+                self._face_idx = torch.arange(F, dtype=torch.int32, device=self.device).unsqueeze(1).repeat(1, 3) # (F, 3)
 
             vertex_normals, _ = dr.interpolate(deformed_normals["vertex_normals"], rast, idx)
             face_normals, _ = dr.interpolate(deformed_normals["face_normals"], rast, self._face_idx)
@@ -139,9 +140,18 @@ class Renderer:
             gbuffer["face_normals"] = face_normals
             gbuffer["tangent_normals"] = tangent_normals
 
-        if extra_vert_attrs is not None:
-            for key in extra_vert_attrs:
-                buff, _ = dr.interpolate(extra_vert_attrs[key], rast, idx)
+        if extra_rast_attrs is not None:
+            for key, attr in extra_rast_attrs.items():
+                A = attr.shape[-1]
+                if attr.shape == (B, F, 3, A) or attr.shape == (F, 3, A):         
+                    # Flatten to (B?, F*3, A)
+                    attr_flat = attr.flatten(-3, -2)
+                    # Triangle indices from 0 to F*3 (cached)
+                    if not hasattr(self, "_face_idx_2") or self._face_idx_2.shape[0] != F:
+                        self._face_idx_2 = torch.arange(F * 3, dtype=torch.int32, device=self.device).reshape(F, 3)
+                    buff, _ = dr.interpolate(attr_flat, rast, self._face_idx_2)
+                else:
+                    buff, _ = dr.interpolate(attr, rast, idx)
                 gbuffer[key] = dr.antialias(buff, rast, deformed_vertices_clip_space, idx)
 
         # mask of mesh in G-buffer

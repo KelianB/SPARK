@@ -175,13 +175,13 @@ def main(avatar: Avatar):
                 optimizer_vertices = create_displacements_optimizer(args, lr_vertices)
                 print("=="*50)
 
-            extra_vert_attrs = {}
+            extra_rast_attrs = {}
             if args.mask_out_mouth_interior or loss_weights["mouth_interior_mask"] > 0:
-                extra_vert_attrs["mouth_interior_mask"] = getattr(flame.mask.f, "sem_mouth_interior").to(device).unsqueeze(-1)
+                extra_rast_attrs["mouth_interior_mask"] = getattr(flame.mask.f, "sem_mouth_interior").to(device).unsqueeze(-1)
 
             # Avatar.run call
             rgb_pred, gbuffers, cbuffers, mesh, canonical_offsets, deformed_vertices, gbuffer_mask, lbs_weights, shapedirs, posedirs = \
-                 avatar.run(views, iteration, extra_vert_attrs=extra_vert_attrs)
+                 avatar.run(views, iteration, extra_rast_attrs=extra_rast_attrs)
 
             # ==============================================================================================
             # Loss function 

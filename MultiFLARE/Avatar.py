@@ -242,7 +242,7 @@ class Avatar():
             posedirs: Tensor = None,
             lbs_weights: Tensor = None,
             deformed_vertices: Tensor = None,
-            extra_vert_attrs: Dict[str, Tensor] = None,
+            extra_rast_attrs: Dict[str, Tensor] = None,
             texture: Tensor = None,
         ):
 
@@ -262,16 +262,16 @@ class Avatar():
                                               deformer_net=deformer_net, shapedirs=shapedirs, posedirs=posedirs, lbs_weights=lbs_weights)
         d_normals = mesh.fetch_all_normals(deformed_vertices, mesh)
 
-        if extra_vert_attrs is None:
-            extra_vert_attrs = dict()
+        if extra_rast_attrs is None:
+            extra_rast_attrs = dict()
         if texture is not None:
-            extra_vert_attrs["uv_coords"] = flame.uvs
+            extra_rast_attrs["uv_coords"] = flame.uvs
 
         # Rasterize
         gbuffers = renderer.render_batch(views["camera"], deformed_vertices.contiguous(), d_normals,
                             channels=channels_gbuffer, with_antialiasing=True, 
                             canonical_v=mesh.vertices, canonical_idx=mesh.indices,
-                            extra_vert_attrs=extra_vert_attrs)
+                            extra_rast_attrs=extra_rast_attrs)
         
         # Shade the final color
         if shader is None:
