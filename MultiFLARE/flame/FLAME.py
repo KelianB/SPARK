@@ -217,14 +217,8 @@ class FLAME(nn.Module):
         self.register_buffer("shapedirs_identity", self.shapedirs[:, :, :shape_params], persistent=False)
         self.register_buffer("shapedirs_expression", self.shapedirs[:, :, shape_params:], persistent=False)
 
-        # Generally, UV coordinates are per vertex per face. 
-        # We only keep one UV coordinate per vertex for simplicity.
-        flame_uvs = torch.zeros((self.v_template.shape[0], 2), dtype=torch.float)
-        for f_idx in range(self.faces.shape[0]):
-            verts = self.faces[f_idx]
-            tex = self.textures_idx[f_idx]
-            flame_uvs[verts] = self.verts_uvs[tex]
-        self.register_buffer("uvs", flame_uvs, persistent=False)
+        # Per-corner UVs (3 UV coordinates per face)
+        self.register_buffer("uvs", self.verts_uvs[self.textures_idx], persistent=False) # (F, 3, 2)
 
         self.register_buffer("canonical_pose", canonical_pose, persistent=False)
         self.register_buffer("canonical_expr", torch.zeros((self.n_expr_params), dtype=torch.float) if canonical_expr is None else canonical_expr, persistent=False)

@@ -77,8 +77,7 @@ class Avatar():
             flame.shapedirs_expression_updated = misc_dict["shapedirs_expression_updated"].to(device)
             flame.lbs_weights_updated = misc_dict["lbs_weights_updated"].to(device)
             flame.posedirs_updated = misc_dict["posedirs_updated"].to(device)
-            if "uvs" in misc_dict:
-                flame.uvs = misc_dict["uvs"].to(device)
+            flame.uvs = misc_dict["uvs"].to(device)
             photo_loss_cache = misc_dict["photo_loss_cache"].to(device)
         else:
             pose_train = torch.stack([dataset_train.get_flame_pose(i, device) for i in range(len(dataset_train))])
@@ -229,7 +228,7 @@ class Avatar():
                 "shapedirs_expression_updated": flame.shapedirs_expression_updated.cpu(),
                 "lbs_weights_updated": flame.lbs_weights_updated.cpu(),
                 "posedirs_updated": flame.posedirs_updated.cpu(),
-                **({} if flame.uvs is None else {"uvs": flame.uvs.cpu()}),
+                "uvs": flame.uvs.cpu(),
             }, self.networks_save_path / f"misc_{suffix}.pt")
 
     def run(self,
@@ -265,7 +264,7 @@ class Avatar():
         if extra_rast_attrs is None:
             extra_rast_attrs = dict()
         if texture is not None:
-            extra_rast_attrs["uv_coords"] = flame.uvs
+            extra_rast_attrs["uvs"] = flame.uvs
 
         # Rasterize
         gbuffers = renderer.render_batch(views["camera"], deformed_vertices.contiguous(), d_normals,
@@ -334,6 +333,7 @@ def init_FLAME(device, args, dataset_train) -> FLAME:
         flame.faces, kept_faces_mask = disconnect_vertices(flame.faces, flame.mask.v.boundary.to(device), get_face_mask=True)
         removed_faces = (kept_faces_mask == 0).nonzero().squeeze(-1)
         flame.verts_uvs, flame.textures_idx = remove_faces(flame.verts_uvs, flame.textures_idx, removed_faces)
+        flame.uvs = flame.uvs[kept_faces_mask]
 
     flame.posedirs_updated = flame.posedirs.clone()
     flame.lbs_weights_updated = flame.lbs_weights.clone()

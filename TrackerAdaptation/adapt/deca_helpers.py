@@ -62,7 +62,7 @@ def deca_set_render_faces(deca, faces, uv_coords=None):
     if faces.ndim == 2:
         faces = faces.unsqueeze(0)
     assert faces.ndim == 3 # (1, F, 3)
-    n_faces = faces.shape[1]
+    F = faces.shape[1]
 
     try:
         copy_faces = deca.deca.render.faces.clone()
@@ -70,24 +70,25 @@ def deca_set_render_faces(deca, faces, uv_coords=None):
         copy_face_uvcoords = deca.deca.render.face_uvcoords.clone()
         copy_face_colors = deca.deca.render.face_colors.clone() # (1, 9976, 3, 3)
         deca.deca.render.faces = faces
-        deca.deca.render.face_colors = deca.deca.render.face_colors[:,(0,)].repeat(1, n_faces, 1, 1)
+        deca.deca.render.face_colors = deca.deca.render.face_colors[:,(0,)].repeat(1, F, 1, 1)
 
         if uv_coords is None:
-            if n_faces < copy_faces.shape[1]:
-                deca.deca.render.face_uvcoords = copy_face_uvcoords[:, :n_faces]
-                deca.deca.render.uvfaces = copy_uvfaces[:, :n_faces]
-            elif n_faces > copy_faces.shape[1]:
-                new_uvcoords = torch.zeros((1, n_faces - copy_faces.shape[1], 3, 3), dtype=torch.float, device=faces.device)
+            if F < copy_faces.shape[1]:
+                deca.deca.render.face_uvcoords = copy_face_uvcoords[:, :F]
+                deca.deca.render.uvfaces = copy_uvfaces[:, :F]
+            elif F > copy_faces.shape[1]:
+                new_uvcoords = torch.zeros((1, F - copy_faces.shape[1], 3, 3), dtype=torch.float, device=faces.device)
                 deca.deca.render.face_uvcoords = torch.cat((copy_face_uvcoords, new_uvcoords), dim=1)
                 # new_uvfaces = torch.zeros((1,n_faces - copy_faces.shape[1], 3), dtype=torch.float, device=faces.device)
                 # deca.deca.render.uvfaces = torch.cat((copy_uvfaces, new_uvfaces), dim=1)
         else:
-            # Convert per-vertex uvs to per-triangle per-vertex uvs
-            uv_coords = uv_coords * 2 - 1 # (V, 2)
+            # uv_coords is expected to be per-corner, with shape (F, 3, 2)
+            assert uv_coords.shape == (F, 3, 2)
+            uv_coords = uv_coords * 2 - 1
             uv_coords[..., 1] = -uv_coords[..., 1]
-            face_uvcoords = uv_coords[faces] # (1, V, 3, 2)
-            face_uvcoords = torch.cat((face_uvcoords, torch.zeros_like(face_uvcoords[...,0:1])), dim=-1)
-            deca.deca.render.face_uvcoords = face_uvcoords  # (1, V, 3, 3)
+            uv_coords = torch.cat((uv_coords, torch.zeros_like(uv_coords[...,0:1])), dim=-1) # pad to (F,3,3)
+            deca.deca.render.face_uvcoords = uv_coords.view(F*3, 3)
+            deca.deca.render.uvfaces = torch.arange(0, F*3, device=faces.device).view(F, 3) 
         yield
     finally:
         deca.deca.render.faces = copy_faces

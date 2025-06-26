@@ -25,7 +25,8 @@ def config_parser():
 
     # iters
     parser.add_argument("--iterations", type=int, default=3000, help="Total number of iterations")
-    parser.add_argument("--remesh_iterations", type=int, nargs="*", default=[500], help="Iterations at which to perform mesh upsampling")
+    parser.add_argument("--remesh_iterations", type=int, nargs="*", default=[500, 1000], help="Iterations at which to perform mesh upsampling")
+    parser.add_argument("--remesh_method", type=str, default="subdivision", choices=["subdivision", "botsch"], help="Which remeshing method to use (Botsch and Kobbelt's or subdivision)")
     parser.add_argument("--save_frequency", type=int, default=1000, help="Frequency of mesh and network weights saving (in iterations)")
     parser.add_argument("--visualization_frequency", type=int, default=100, help="Frequency of visualizations (in iterations)")
  
