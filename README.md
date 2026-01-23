@@ -36,7 +36,6 @@
     <img src="assets/teaser.gif" width="98%" />
 </p>
 
-
 ## Citation
 
 If you find our code or paper useful, please cite as:
@@ -45,11 +44,15 @@ If you find our code or paper useful, please cite as:
 @inproceedings{baert2024spark,
   title = {{SPARK}: Self-supervised Personalized Real-time Monocular Face Capture},
   author = {Baert, Kelian and Bharadwaj, Shrisha and Castan, Fabien and Maujean, Benoit and Christie, Marc and Abrevaya, Victoria and Boukhayma, Adnane},
+  year = {2024},
+  month = dec,
   booktitle = {SIGGRAPH Asia 2024 Conference Proceedings},
+  articleno = {113},
   doi = {10.1145/3680528.3687704},
   isbn = {979-8-4007-1131-2/24/12},
-  month = dec,
-  year = {2024},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  numpages = {12},
   url = {https://kelianb.github.io/SPARK/},
 }
 ```
@@ -65,7 +68,7 @@ If you find our code or paper useful, please cite as:
     - This is equivalent to downloading [FLAME](https://flame.is.tue.mpg.de/download.php) (2020 version), unzipping it and copying `generic_model.pkl` at `./MultiFLARE/assets/flame/flame2020.pkl`.
 - Get Basel Face Model texture space adapted to FLAME. Unfortunately, we are not allowed to distribute the texture space since the license does not permit it. Therefore, please use the tool from this [repo](https://github.com/TimoBolkart/BFM_to_FLAME) to convert the texture space to FLAME. Put the resulting texture model file at `TrackerAdaptation/submodules/EMOCA/assets/FLAME/texture/FLAME_albedo_from_BFM.npz`.
 
-SPARK has been tested with NVIDIA RTX A5000 (24GB) or RTX A4000 (16GB) GPUs. It is possible to train on GPUs with less memory by reducing the batch size. 
+SPARK has been tested with NVIDIA RTX A5000 (24GB) or RTX A4000 (16GB) GPUs. It is possible to train on GPUs with less memory by reducing the batch size.
 
 </details>
 
@@ -75,12 +78,13 @@ Please refer to the [MonoFaceCompute](https://github.com/KelianB/MonoFaceCompute
 
 ## Usage
 
-SPARK is a two-stage approach. First, run [MultiFLARE](./MultiFLARE/) to reconstruct a 3D Face Avatar from multiple videos. Then, use [TrackerAdaptation](./TrackerAdaptation/) to adapt an existing 3D face tracker to your avatar for real-time tracking through transfer learning. 
+SPARK is a two-stage approach. First, run [MultiFLARE](./MultiFLARE/) to reconstruct a 3D Face Avatar from multiple videos. Then, use [TrackerAdaptation](./TrackerAdaptation/) to adapt an existing 3D face tracker to your avatar for real-time tracking through transfer learning.
 
 <details>
     <summary>Details</summary>
 
 ### 1. MultiFLARE
+
 ```bash
 cd MultiFLARE
 python train.py --config configs/example.txt
@@ -92,6 +96,7 @@ python export_mesh.py --config configs/example.txt --resume 3000 --out_dir /tmp/
 We advise starting from the provided example config and modifying `input_dir`, `train_dir` and `output_dir`. For a list of all parameters, please refer to [arguments.py](./MultiFLARE/arguments.py) or the output of `python train.py --help`. Parameters can be passed either in the config file or as command line arguments.
 
 ### 2. TrackerAdaptation
+
 ```bash
 cd TrackerAdaptation
 # DECA encoder + MultiFLARE decoder
@@ -115,7 +120,7 @@ python make_overlay_video.py --config configs/example_smirk.txt --tracker_resume
 
 ## License Information
 
-The code in this repository is subject to multiple licenses. 
+The code in this repository is subject to multiple licenses.
 
 1. **Original Code** (Technicolor Group & INRIA Rennes)
    - All code in this repository, except where otherwise specified, is licensed under the [CC BY-NC-SA License](./LICENSE).
