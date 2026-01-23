@@ -4,13 +4,19 @@ This repository contains the official source code for [SPARK](https://kelianb.gi
 
 If you find SPARK useful for your work please cite:
 ```
-@article{baert2024spark,
-  author    = {Baert, Kelian and Bharadwaj, Shrisha and Castan, Fabien and Maujean, Benoit and Christie, Marc and Abrevaya, Victoria and Boukhayma, Adnane},
-  title     = {SPARK: Self-supervised Personalized Real-time Monocular Face Capture},
-  booktitle = {SIGGRAPH Asia 2024 Conference Papers (SA Conference Papers '24), December 3-6, Tokyo, Japan},
-  doi       = {10.1145/3680528.3687704},
-  isbn      = {979-8-4007-1131-2/24/12},
-  year      = {2024},
+@inproceedings{baert2024spark,
+  title = {{SPARK}: Self-supervised Personalized Real-time Monocular Face Capture},
+  author = {Baert, Kelian and Bharadwaj, Shrisha and Castan, Fabien and Maujean, Benoit and Christie, Marc and Abrevaya, Victoria and Boukhayma, Adnane},
+  year = {2024},
+  month = dec,
+  booktitle = {SIGGRAPH Asia 2024 Conference Proceedings},
+  articleno = {113},
+  doi = {10.1145/3680528.3687704},
+  isbn = {979-8-4007-1131-2/24/12},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  numpages = {12},
+  url = {https://kelianb.github.io/SPARK/},
 }
 ```
 (non-definitive)
