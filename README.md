@@ -2,17 +2,17 @@
     <h1 align="center">SPARK: Self-supervised Personalized Real-time Monocular Face Capture</h1>
     <p align="center">
         <a href="mailto://kelian.baert@gmail.com"><strong>Kelian Baert</strong></a>
-        .
+        ·
         <a href="https://sbharadwajj.github.io/"><strong>Shrisha Bharadwaj</strong></a>
         ·
         <a href="https://www.linkedin.com/in/fabien-castan/"><strong>Fabien Castan</strong></a>
         ·
         <a href="https://www.linkedin.com/in/benoitmaujean/"><strong>Benoit Maujean</strong></a>
-        .
+        ·
         <a href="https://people.irisa.fr/Marc.Christie/"><strong>Marc Christie</strong></a>
         ·
         <a href="https://vabrevaya.github.io/"><strong>Victoria Fernandez Abrevaya</strong></a>
-        .
+        ·
         <a href="https://boukhayma.github.io/"><strong>Adnane Boukhayma</strong></a>
     </p>
     <p align="center">
@@ -31,16 +31,16 @@
             <img src="https://img.shields.io/badge/Arxiv-red" alt="arxiv PDF">
         </a>
     </p>
-</p>
-<p float="center">
-    <img src="assets/teaser.gif" width="98%" />
+    <p align="center">
+        <img src="assets/teaser.webp" width="98%" />
+    </p>
 </p>
 
 ## Citation
 
 If you find our code or paper useful, please cite as:
 
-```
+```bibtex
 @inproceedings{baert2024spark,
   title = {{SPARK}: Self-supervised Personalized Real-time Monocular Face Capture},
   author = {Baert, Kelian and Bharadwaj, Shrisha and Castan, Fabien and Maujean, Benoit and Christie, Marc and Abrevaya, Victoria and Boukhayma, Adnane},
