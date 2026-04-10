@@ -3,7 +3,7 @@
 This repository contains the official source code for [SPARK](https://kelianb.github.io/SPARK/) [SIGGRAPH Asia 2024].
 
 If you find SPARK useful for your work please cite:
-```
+```bibtex
 @inproceedings{baert2024spark,
   title = {{SPARK}: Self-supervised Personalized Real-time Monocular Face Capture},
   author = {Baert, Kelian and Bharadwaj, Shrisha and Castan, Fabien and Maujean, Benoit and Christie, Marc and Abrevaya, Victoria and Boukhayma, Adnane},
